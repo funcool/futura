@@ -24,7 +24,7 @@
 
 (ns futura.atomic
   "A idiomatic wrapper for jdk atomic types."
-  (:refer-clojure :exclude [set! get long ref]))
+  (:refer-clojure :exclude [set! get long ref boolean compare-and-set!]))
 
 (defprotocol IAtomic
   (compare-and-set! [_ v v'] "Perform the CAS operation.")
@@ -36,50 +36,67 @@
 (defprotocol IAtomicNumber
   (get-and-add! [_ v] "Adds a delta and return the previous value.")
   (get-and-dec! [_] "Decrements the value and return the previous one.")
-  (get-and-inc! [_] "Increments the value and returns the previous one.")
+  (get-and-inc! [_] "Increments the value and returns the previous one."))
 
 (deftype AtomicLong [^java.util.concurrent.atomic.AtomicLong av]
   IAtomicNumber
-  (^long get-and-add! [_ ^long v]
+  (get-and-add! [_ v]
     (.getAndAdd av v))
-  (^long get-and-dec! [_]
+  (get-and-dec! [_]
     (.getAndDecrement av))
-  (^long get-and-inc! [_]
+  (get-and-inc! [_]
     (.getAndIncrement av))
 
   IAtomic
-  (^boolean compare-and-set! [_ ^long expected ^long update]
-    (.compareAndSet av expected update))
-  (^long get-and-set! [_ ^long v]
-    (.getAndSet av v))
-  (^void eventually-set! [_ ^long v]
-    (.lazySet av v))
-  (^long get [_]
-    (.get av))
-  (^void set! [_ ^long v]
-    (.set av v))
-
-  clojure.lang.IDeref
-  (deref [_]
-    (.get av)))
-
-
-(deftype AtomicRef [^java.util.concurrent.atomic.AtomicReference av]
-  IAtomic
-  (^boolean compare-and-set! [_ expected update]
+  (compare-and-set! [_ expected update]
     (.compareAndSet av expected update))
   (get-and-set! [_ v]
     (.getAndSet av v))
-  (^void eventually-set! [_ v]
+  (eventually-set! [_ v]
     (.lazySet av v))
   (get [_]
     (.get av))
-  (^void set! [_ v]
+  (set! [_ v]
     (.set av v))
 
   clojure.lang.IDeref
   (deref [_]
     (.get av)))
+
+(deftype AtomicRef [^java.util.concurrent.atomic.AtomicReference av]
+  IAtomic
+  ( compare-and-set! [_ expected update]
+    (.compareAndSet av expected update))
+  (get-and-set! [_ v]
+    (.getAndSet av v))
+  ( eventually-set! [_ v]
+    (.lazySet av v))
+  (get [_]
+    (.get av))
+  (set! [_ v]
+    (.set av v))
+
+  clojure.lang.IDeref
+  (deref [_]
+    (.get av)))
+
+(deftype AtomicBoolean [^java.util.concurrent.atomic.AtomicBoolean av]
+  IAtomic
+  (compare-and-set! [_ expected update]
+    (.compareAndSet av expected update))
+  (get-and-set! [_ v]
+    (.getAndSet av v))
+  (eventually-set! [_ v]
+    (.lazySet av v))
+  (get [_]
+    (.get av))
+  (set! [_ v]
+    (.set av v))
+
+  clojure.lang.IDeref
+  (deref [_]
+    (.get av)))
+
 
 (defn long
   "Create an instance of atomic long."
@@ -93,4 +110,13 @@
   [v]
   (let [ar (java.util.concurrent.atomic.AtomicReference. v)]
     (AtomicRef. ar)))
+
+(defn boolean
+  "Create an instance of atomic boolean."
+  [v]
+  (let [ar (java.util.concurrent.atomic.AtomicBoolean. v)]
+    (AtomicBoolean. ar)))
+
+
+
 
