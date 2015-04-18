@@ -9,158 +9,93 @@
            org.reactivestreams.Subscription))
 
 (deftest vector-as-publisher
-  (testing "Vector of one element."
-    (let [state (atom [])
-          subscription (atom nil)
-          nexts (chan)
-          completes (chan)
-          errors (chan)
-          subscriber (reify Subscriber
-                       (^void onSubscribe [_ ^Subscription s]
-                         (reset! subscription s))
-                       (^void onNext [_ v]
-                         (put! nexts v))
-                       (^void onComplete [_]
-                         (put! completes true)
-                         (close! nexts)
-                         (close! completes)
-                         (close! errors))
-                       (^void onError [_ ^Throwable e]
-                         (put! errors e)
-                         (close! nexts)
-                         (close! completes)
-                         (close! errors)))
+  (let [state (atom [])
+        subscription (atom nil)
+        nexts (chan)
+        completes (chan)
+        errors (chan)
+        subscriber (reify Subscriber
+                     (^void onSubscribe [_ ^Subscription s]
+                       (reset! subscription s))
+                     (^void onNext [_ v]
+                       (put! nexts v))
+                     (^void onComplete [_]
+                       (put! completes true)
+                       (close! nexts)
+                       (close! completes)
+                       (close! errors))
+                     (^void onError [_ ^Throwable e]
+                       (put! errors e)
+                       (close! nexts)
+                       (close! completes)
+                       (close! errors)))
 
-          publisher (stream/publisher [100])]
+        publisher (stream/publisher [100 200 300 400])]
 
-      (is (instance? Publisher publisher))
-      (is (instance? Subscriber subscriber))
-      (is (nil? @subscription))
-
-      (.subscribe publisher subscriber)
-      (is (instance? Subscription @subscription))
-
-      (.request @subscription 1)
-      (is (= 100 (<!! nexts)))
-      (is (<!! completes))
-
-      (.request @subscription 1)
-      (is (nil? (<!! nexts)))))
-
-  (testing "Vector of few elements."
-    (let [state (atom [])
-          subscription (atom nil)
-          nexts (chan)
-          completes (chan)
-          errors (chan)
-          subscriber (reify Subscriber
-                       (^void onSubscribe [_ ^Subscription s]
-                         (reset! subscription s))
-                       (^void onNext [_ v]
-                         (put! nexts v))
-                       (^void onComplete [_]
-                         (put! completes true)
-                         (close! nexts)
-                         (close! completes)
-                         (close! errors))
-                       (^void onError [_ ^Throwable e]
-                         (put! errors e)
-                         (close! nexts)
-                         (close! completes)
-                         (close! errors)))
-
-          publisher (stream/publisher [100 200 300 400])]
-
-      (.subscribe publisher subscriber)
-      (.request @subscription 100)
-      (is (= 100 (<!! nexts)))
-      (is (= 200 (<!! nexts)))
-      (is (= 300 (<!! nexts)))
-      (is (= 400 (<!! nexts)))
-      (is (<!! completes))))
-)
-
-(deftest seq-as-publisher
-  (testing "seq of one element."
-    (let [state (atom [])
-          subscription (atom nil)
-          nexts (chan)
-          completes (chan)
-          errors (chan)
-          subscriber (reify Subscriber
-                       (^void onSubscribe [_ ^Subscription s]
-                         (reset! subscription s))
-                       (^void onNext [_ v]
-                         (put! nexts v))
-                       (^void onComplete [_]
-                         (put! completes true)
-                         (close! nexts)
-                         (close! completes)
-                         (close! errors))
-                       (^void onError [_ ^Throwable e]
-                         (put! errors e)
-                         (close! nexts)
-                         (close! completes)
-                         (close! errors)))
-
-          publisher (stream/publisher (seq [100]))]
-
-      (is (instance? Publisher publisher))
-      (is (instance? Subscriber subscriber))
-      (is (nil? @subscription))
-
-      (.subscribe publisher subscriber)
-      (is (instance? Subscription @subscription))
-
-      (.request @subscription 100)
-      (is (= 100 (<!! nexts)))
-      (is (<!! completes))
-
-      (.request @subscription 1)
-      (is (nil? (<!! nexts)))))
+    (.subscribe publisher subscriber)
+    (.request @subscription 100)
+    (is (= 100 (<!! nexts)))
+    (is (= 200 (<!! nexts)))
+    (is (= 300 (<!! nexts)))
+    (is (= 400 (<!! nexts)))
+    (is (<!! completes)))
 )
 
 (deftest chan-as-publisher
-  (testing "seq of one element."
-    (let [state (atom [])
-          subscription (atom nil)
-          nexts (chan)
-          completes (chan)
-          errors (chan)
-          source (chan 10)
-          subscriber (reify Subscriber
-                       (^void onSubscribe [_ ^Subscription s]
-                         (reset! subscription s))
-                       (^void onNext [_ v]
-                         (put! nexts v))
-                       (^void onComplete [_]
-                         (put! completes true)
-                         (close! nexts)
-                         (close! completes)
-                         (close! errors))
-                       (^void onError [_ ^Throwable e]
-                         (put! errors e)
-                         (close! nexts)
-                         (close! completes)
-                         (close! errors)))
+  (let [state (atom [])
+        subscription (atom nil)
+        nexts (chan)
+        completes (chan)
+        errors (chan)
+        source (chan 10)
+        subscriber (reify Subscriber
+                     (^void onSubscribe [_ ^Subscription s]
+                       (reset! subscription s))
+                     (^void onNext [_ v]
+                       (put! nexts v))
+                     (^void onComplete [_]
+                       (put! completes true)
+                       (close! nexts)
+                       (close! completes)
+                       (close! errors))
+                     (^void onError [_ ^Throwable e]
+                       (put! errors e)
+                       (close! nexts)
+                       (close! completes)
+                       (close! errors)))
 
-          publisher (stream/publisher source)]
-      (put! source 100)
-      (put! source 200)
-      (close! source)
+        publisher (stream/publisher source)]
+    (put! source 100)
+    (put! source 200)
+    (close! source)
 
-      (is (instance? Publisher publisher))
-      (is (instance? Subscriber subscriber))
-      (is (nil? @subscription))
+    (is (instance? Publisher publisher))
+    (is (instance? Subscriber subscriber))
+    (is (nil? @subscription))
 
-      (.subscribe publisher subscriber)
-      (is (instance? Subscription @subscription))
+    (.subscribe publisher subscriber)
+    (is (instance? Subscription @subscription))
 
-      (.request @subscription 100)
-      (is (= 100 (<!! nexts)))
-      (is (= 200 (<!! nexts)))
-      (is (<!! completes))
+    (.request @subscription 100)
+    (is (= 100 (<!! nexts)))
+    (is (= 200 (<!! nexts)))
+    (is (<!! completes))
 
-      (.request @subscription 1)
-      (is (nil? (<!! nexts)))))
+    (.request @subscription 1)
+    (is (nil? (<!! nexts))))
 )
+
+(deftest publisher-composition
+  (let [p (->> (stream/publisher [1 2 3 4 5 6])
+               (stream/map inc))
+        c (stream/publisher->chan p)]
+    (is (= [2 3 4 5 6 7] (<!! (async/into [] c)))))
+
+  (let [p (->> (stream/publisher [1 2 3 4])
+               (stream/publisher (take 2)))
+        c (stream/publisher->chan p)]
+    (is (= [1 2] (<!! (async/into [] c)))))
+
+)
+
+
