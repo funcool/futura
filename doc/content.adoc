@@ -1,0 +1,106 @@
+= futura - The building blocks for asynchronous programming in Clojure.
+Andrey Antukh, <niwi@niwi.be>
+:toc: left
+:numbered:
+:source-highlighter: pygments
+:pygments-style: friendly
+:sectlinks:
+
+
+== Introduction
+
+TBD
+
+== Rationale
+
+TBD
+
+
+== Project Maturity
+
+Since _futura_ is a young project there may be some API breakage.
+
+
+== Install
+
+This section covers the installation and requirements of the _futura_ library.
+
+
+=== Leiningen
+
+The simplest way to use _futura_ library in a ClojureScript project is by including
+it as a dependency in your *_project.clj_*:
+
+[source,clojure]
+----
+[funcool/futura "0.1.0-SNAPSHOT"]
+----
+
+
+=== Get the Code
+
+_futura_ is open source and can be found on link:https://github.com/funcool/futura[github].
+
+You can clone the public repository with this command:
+
+[source,text]
+----
+git clone https://github.com/funcool/futura
+----
+
+
+== User guide
+
+TBD
+
+== Advanced usage
+
+TBD
+
+
+== Contribute
+
+**futura** unlike Clojure and other Clojure contrib libs, does not have many
+restrictions for contributions. Just open a issue or pull request.
+
+
+== Run tests
+
+For run tests just execute this:
+
+[source, text]
+----
+lein test
+----
+
+
+== License
+
+_futura_ is licensed under BSD (2-Clause) license:
+
+----
+Copyright (c) 2015 Andrey Antukh <niwi@niwi.be>
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+----
