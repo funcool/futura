@@ -57,13 +57,16 @@
   (let [transform (fn
                     ([s] s)
                     ([s v] (.onNext s v)))
-        rf (xform transform)]
+        rf (xform transform)
+        subscription (atomic/ref nil)]
     (reify Subscriber
       (onSubscribe [_ s]
+        (atomic/set! subscription s)
         (.onSubscribe subscriber s))
       (onNext [_ v]
         (let [res (rf subscriber v)]
           (when (reduced? res)
+            (.cancel @subscription)
             (.onComplete (rf subscriber)))))
       (onError [_ e]
         (.onError (rf subscriber) e))

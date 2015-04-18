@@ -92,9 +92,11 @@
     (is (= [2 3 4 5 6 7] (<!! (async/into [] c)))))
 
   (let [p (->> (stream/publisher [1 2 3 4])
-               (stream/publisher (take 2)))
+               (stream/publisher (take 2))
+               (stream/publisher (map inc)))
+
         c (stream/publisher->chan p)]
-    (is (= [1 2] (<!! (async/into [] c)))))
+    (is (= [2 3] (<!! (async/into [] c)))))
 
 )
 
