@@ -28,12 +28,14 @@
             [cats.protocols :as proto])
   (:import java.util.concurrent.CompletableFuture
            java.util.concurrent.TimeoutException
+           java.util.concurrent.ExecutionException
+           java.util.concurrent.CompletionException
            java.util.concurrent.TimeUnit))
 
 (defprotocol IPromise
   "A default abstraction for a promise."
   (^:private rejected* [_] "Returns true if a promise is rejected.")
-  (^:private fulfiled* [_] "Returns true if a promise is fulfiled.")
+  (^:private fulfilled* [_] "Returns true if a promise is fulfiled.")
   (^:private pending* [_] "Retutns true if a promise is stil pending.")
   (^:private then* [_ callback] "Chain a promise.")
   (^:private error* [_ callback] "Catch a error in a promise."))
@@ -70,27 +72,46 @@
   (extract [_]
     (try
       (.getNow cf nil)
-      (catch Throwable e
-        e)))
+      (catch ExecutionException e
+        (.getCause e))
+      (catch CompletionException e
+        (.getCause e))))
 
   clojure.lang.IDeref
   (deref [_]
-    (.get cf))
+    (try
+      (.get cf)
+      (catch ExecutionException e
+        (let [e' (.getCause e)]
+          (.setStackTrace e' (.getStackTrace e))
+          (throw e')))
+      (catch CompletionException e
+        (let [e' (.getCause e)]
+          (.setStackTrace e' (.getStackTrace e))
+          (throw e')))))
 
   clojure.lang.IBlockingDeref
   (deref [_ ^long ms defaultvalue]
     (try
       (.get cf ms TimeUnit/SECONDS)
-      (catch TimeoutError e
-        defaultvalue)))
+      (catch TimeoutException e
+        defaultvalue)
+      (catch ExecutionException e
+        (let [e' (.getCause e)]
+          (.setStackTrace e' (.getStackTrace e))
+          (throw e')))
+      (catch CompletionException e
+        (let [e' (.getCause e)]
+          (.setStackTrace e' (.getStackTrace e))
+          (throw e')))))
 
   IPromise
   (rejected* [_]
     (.isCompletedExceptionally cf))
 
-  (fulfiled* [it]
+  (fulfilled* [_]
     (and (not (.isCompletedExceptionally cf))
-         (not (.isCanceled cf))
+         (not (.isCancelled cf))
          (.isDone cf)))
 
   (pending* [_]
@@ -104,8 +125,8 @@
 
   (error* [_ callback]
     (let [cf' (.exceptionally cf (reify java.util.function.Function
-                                   (apply [_ ^Throwable e]
-                                     (callback e))))]
+                                   (apply [_ e]
+                                     (callback (.getCause e)))))]
       (Promise. cf'))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -130,18 +151,28 @@
     (.completeExceptionally f v)
     (Promise. f)))
 
+(defn complete
+  "Complete the promise."
+  [p v]
+  (if (instance? Throwable v)
+    (.completeExceptionally p v)
+    (.complete p v)))
+
 (defmulti promise
   "A polymorphic constructor of promise."
-  class)
+  (fn [& [v & rest]]
+    (if (nil? v)
+      ::pending
+      (class v))))
 
 (defmethod promise clojure.lang.IFn
-  [func]
+  [func & [xform]]
   (let [futura (CompletableFuture.)
         promise' (Promise. futura)
-        callback (fn [v]
-                   (if (instance? Throwable v)
-                     (.completeExceptionally futura v)
-                     (.complete futura v)))]
+        complete #(complete futura %)
+        callback (if xform
+                   (xform complete)
+                   complete)]
     (try
       (func callback)
       (catch Throwable e
@@ -159,6 +190,10 @@
 (defmethod promise Promise
   [p]
   p)
+
+(defmethod promise ::pending
+  []
+  (Promise. (CompletableFuture.)))
 
 (defmethod promise :default
   [v]
@@ -229,5 +264,5 @@
   Throws an error if the promise isn't rejected."
   [p]
   (let [e (proto/extract p)]
-    (when (instance? Throws e)
+    (when (instance? Throwable e)
       e)))
