@@ -37,18 +37,17 @@
 
 (defn- promise->subscription
   [subscriber source]
-  (let [canceled (atomic/boolean false)]
+  (let [canceled (atomic/boolean false)
+        completed (atomic/boolean false)]
     (reify Subscription
       (^void request [_ ^long n]
-        (-> source
-            (p/then (fn [v]
-                      (when-not @canceled
-                        (.onNext subscriber v)
-                        (.onComplete subscriber))))
-            (p/catch (fn [e]
-                       (when-not @canceled
-                         (.onError subscriber e))))))
+        (when (atomic/compare-and-set! completed false true)
+          (p/then source (fn [v]
+                           (when-not @canceled
+                             (.onNext subscriber v)
+                             (.onComplete subscriber))))))
       (^void cancel [_]
+        (atomic/set! completed true)
         (atomic/set! canceled true)))))
 
 (defn- subscribe-once
@@ -75,20 +74,25 @@
                     ([s] s)
                     ([s v] (.onNext s v)))
         rf (xform transform)
+        completed (atomic/boolean false)
         subscription (atomic/ref nil)]
     (reify Subscriber
       (onSubscribe [_ s]
         (atomic/set! subscription s)
         (.onSubscribe subscriber s))
       (onNext [_ v]
-        (let [res (rf subscriber v)]
-          (when (reduced? res)
-            (.cancel @subscription)
-            (.onComplete (rf subscriber)))))
+        (when-not @completed
+          (let [res (rf subscriber v)]
+            (when (reduced? res)
+              (.cancel @subscription)
+              (.onComplete (rf subscriber))
+              (atomic/set! completed true)))))
       (onError [_ e]
         (.onError (rf subscriber) e))
       (onComplete [_]
-        (.onComplete (rf subscriber))))))
+        (when-not @completed
+          (.onComplete (rf subscriber))
+          (atomic/set! completed true))))))
 
 (definterface IPushStream
   (push [_ v] "Push a value into stream.")
