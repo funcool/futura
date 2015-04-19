@@ -23,10 +23,11 @@
 ;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 (ns futura.atomic
-  "A idiomatic wrapper for jdk atomic types."
+  "A clojure idiomatic wrapper for JDK atomic types."
   (:refer-clojure :exclude [set! get long ref boolean compare-and-set!]))
 
 (defprotocol IAtomic
+  "A common abstraction for atomic types."
   (compare-and-set! [_ v v'] "Perform the CAS operation.")
   (get-and-set! [_ v] "Set a new value and return the previous one.")
   (eventually-set! [_ v] "Eventually set a new value.")
@@ -34,6 +35,7 @@
   (set! [_ v] "Set a new value."))
 
 (defprotocol IAtomicNumber
+  "A common abstraction for number atomic types."
   (get-and-add! [_ v] "Adds a delta and return the previous value.")
   (get-and-dec! [_] "Decrements the value and return the previous one.")
   (get-and-inc! [_] "Increments the value and returns the previous one."))
@@ -97,9 +99,10 @@
   (deref [_]
     (.get av)))
 
-
 (defn long
-  "Create an instance of atomic long."
+  "Create an instance of atomic long with optional
+  initial value. If it is not provided, `0` will be
+  the initial value."
   ([] (long 0))
   ([n]
    (let [al (java.util.concurrent.atomic.AtomicLong. n)]

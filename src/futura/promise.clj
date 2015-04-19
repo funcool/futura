@@ -1,4 +1,4 @@
-;; Copyright (c) 2015 Andrey Antukh
+;; Copyright (c) 2015 Andrey Antukh <niwi@niwi.be>
 ;; All rights reserved.
 ;;
 ;; Redistribution and use in source and binary forms, with or without
@@ -33,7 +33,7 @@
            java.util.concurrent.TimeUnit))
 
 (defprotocol IPromise
-  "A default abstraction for a promise."
+  "A promise abstraction."
   (^:private rejected* [_] "Returns true if a promise is rejected.")
   (^:private fulfilled* [_] "Returns true if a promise is fulfiled.")
   (^:private pending* [_] "Retutns true if a promise is stil pending.")
@@ -134,32 +134,59 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn future
-  "Converts a promise in a JDK8 CompletableFuture instance."
+  "Converts a promise in a CompletableFuture instance."
   [^Promise p]
   (.-cf p))
 
 (defn resolved
-  "Return a resolved promise with provided value."
+  "Return a promise in a resolved state
+  with given `v` value."
   [v]
   (-> (CompletableFuture/completedFuture v)
       (Promise.)))
 
 (defn rejected
-  "Return a rejected promise with provided reason."
-  [v]
+  "Return a promise in a rejected state
+  with given exception `e`."
+  [e]
   (let [f (CompletableFuture.)]
-    (.completeExceptionally f v)
+    (.completeExceptionally f e)
     (Promise. f)))
 
 (defn complete
-  "Complete the promise."
-  [p v]
-  (if (instance? Throwable v)
-    (.completeExceptionally p v)
-    (.complete p v)))
+  "Mark the promise as completed with optional value.
+
+  If value is not specified `nil` will be used. If the value
+  is instance of `Throwable` the promise will be rejected."
+  ([p] (completed p nil))
+  ([p v]
+   (if (instance? Throwable v)
+     (.completeExceptionally p v)
+     (.complete p v))))
 
 (defmulti promise
-  "A polymorphic constructor of promise."
+  "A promise constructor.
+
+  This is a polymorphic function and this is a list of
+  possible arguments:
+
+  - throwable
+  - plain value
+  - function / callable
+
+  In case of the initial value is instance of `Throwable`, rejected
+  promise will be retrned. In case of a plain value (not throwable),
+  a resolved promise will be returned. And finally, if a function
+  or any callable is provided, that function will be executed with
+  one argument as callback for mark the promise resolved or rejected.
+
+      (promise (fn [complete]
+                 (future
+                   (Thread/sleep 200)
+                   (complete 1))))
+
+  The body of that function can be asynchronous and the promise can
+  be freely resolved in other thread."
   (fn [& [v & rest]]
     (if (nil? v)
       ::pending
@@ -200,7 +227,7 @@
   (resolved v))
 
 (defn promise?
-  "Returns true if `p` is a primise
+  "Returns true if `p` is a promise
   instance."
   [p]
   (instance? Promise p))
