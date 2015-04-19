@@ -3,7 +3,8 @@
   (:require [clojure.core.async :refer [put! take! <! >! go go-loop] :as async]
             [futura.atomic :as atomic]
             [futura.promise :as p])
-  (:import org.reactivestreams.Publisher
+  (:import java.util.concurrent.CompletableFuture
+           org.reactivestreams.Publisher
            org.reactivestreams.Subscriber
            org.reactivestreams.Subscription))
 
@@ -33,6 +34,22 @@
         (^void cancel [_]
           (atomic/set! completed true)
           (async/close! requests))))))
+
+(defn- promise->subscription
+  [subscriber source]
+  (let [canceled (atomic/boolean false)]
+    (reify Subscription
+      (^void request [_ ^long n]
+        (-> source
+            (p/then (fn [v]
+                      (when-not @canceled
+                        (.onNext subscriber v)
+                        (.onComplete subscriber))))
+            (p/catch (fn [e]
+                       (when-not @canceled
+                         (.onError subscriber e))))))
+      (^void cancel [_]
+        (atomic/set! canceled true)))))
 
 (defn- subscribe-once
   [^Publisher p callback]
@@ -96,8 +113,21 @@
   (publisher* [source xform]
     (reify Publisher
       (^void subscribe [_ ^Subscriber subscriber]
-        (let [subscription (chan->subscription subscriber source)]
+        (let [source' (async/chan 1 xform)
+              _       (async/pipe source source')
+              subscription (chan->subscription subscriber source')]
           (.onSubscribe subscriber subscription)))))
+
+  futura.promise.Promise
+  (publisher* [source xform]
+    (reify Publisher
+      (^void subscribe [_ ^Subscriber subscriber]
+        (let [subscription (promise->subscription subscriber source)]
+          (.onSubscribe subscriber subscription)))))
+
+  CompletableFuture
+  (publisher* [source xform]
+    (publisher* (p/promise source) xform))
 
   nil
   (publisher* [source xform]

@@ -3,7 +3,8 @@
             [clojure.test :refer :all]
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
-            [futura.stream :as stream])
+            [futura.stream :as stream]
+            [futura.promise :as p])
   (:import org.reactivestreams.Publisher
            org.reactivestreams.Subscriber
            org.reactivestreams.Subscription))
@@ -85,6 +86,11 @@
     (is (nil? (<!! nexts))))
 )
 
+(deftest publisher-from-promise
+  (let [p (stream/publisher (p/promise 1))
+        c (stream/publisher->chan p)]
+    (is (= [1] (<!! (async/into [] c))))))
+
 (deftest publisher-composition
   (let [p (->> (stream/publisher [1 2 3 4 5 6])
                (stream/map inc))
@@ -99,5 +105,3 @@
     (is (= [2 3] (<!! (async/into [] c)))))
 
 )
-
-
