@@ -1,6 +1,7 @@
 = futura - The building blocks for asynchronous programming in Clojure.
 Andrey Antukh, <niwi@niwi.be>
 :toc: left
+:toclevels: 1
 :numbered:
 :source-highlighter: pygments
 :pygments-style: friendly
@@ -9,11 +10,37 @@ Andrey Antukh, <niwi@niwi.be>
 
 == Introduction
 
-TBD
+The basic building blocks for concurrent, asynchronous and non blocking programming in clojure.
+
 
 == Rationale
 
-TBD
+This project exists as consecuence of the need of good abstraction for represent eventually available
+asynchronous values for the link:https://github.com/funcool/catacumba[catacumba project].
+
+It there already existing libraries in clojure ecosystem such as _manifold_ that are well
+established and intends to be a "lingua franca" for asynchronous computation results. But I think
+that here there space for an alternative with different vision.
+
+The _futura_ library at this moment provides three different building blocks:
+
+* *Streams* +
+  I did not want invent yet an other streams abstraction and luckily I found
+  the link:http://www.reactive-streams.org/[reactive streams] initiative that has already defined
+  a strong and well defined contract on how the abstraction should behave and with backpressure
+  awareness in its core. +
+  This library uses that interfaces and provides a powerfull clojure features (like transducers) to
+  the good and interoperable stream abstraction.
+* *Promises* +
+  With promises happens something similar, but in this case JDK8 comes with good implementation with
+  wrong name: `CompletableFuture`. This library provides a promise abstraction primitive build on top
+  of jdk8 completable futures implementation and implements the monadic protocols of cats library that
+  allows it to play in the monadic composition using generic syntactic abstractions like haskell
+  like `do syntax`.
+* *Atomics* +
+  Additionally to the mentioned abstractions, this library provides an lighweight clojure friendly
+  syntax for working with JDK Atomic types and references that are often used as concurrency primitives
+  in the streams implementation.
 
 
 == Project Maturity
@@ -49,11 +76,141 @@ git clone https://github.com/funcool/futura
 ----
 
 
-== User guide
+== Promises
 
 TBD
 
-== Advanced usage
+
+== Streams
+
+The streams in _futura_ library are governed by the 
+link:http://www.reactive-streams.org/[reactive streams] iniciative and its default interfaces
+for the jvm languages but with support for the powerful clojure's features as transducers and sequence
+abstractions.
+
+TBD
+
+
+== Atomics
+
+This is a simple clojure friendly syntax and lightweight abstraction built on top of clojure's protocols
+for treat with JDK atomic types and reference types.
+
+This is a low level, side effecting primitive and should be used only when you are really known that
+are you doing. If you do not know if you should use it or not, prefer using standard clojure primitives
+such as atom, ref, and agents.
+
+
+=== Atomic Reference
+
+The atomic reference privides a lock-free, thread safe object reference container. The real purpose
+of this type is store a reference to an arbitrary object and will be able mutate it in a thread
+safe, lock-fre way.
+
+==== Creating an atomic reference
+
+The atomic reference can be created with `ref` function from the `futura.atomic` namespace:
+
+[source, clojure]
+----
+(require '[futura.atomic :as atomic])
+
+(atomic/ref :foo)
+;; => #object[futura.atomic.AtomicRef 0x5e42bd13 {:status :ready, :val :foo}]
+----
+
+//^ And it accepts different kind of typical operatons of atomic abstractions:
+
+==== Get and set values
+
+The atomic reference provides the standard way to set or get values using `get` and `set!` functions:
+
+[source, clojure]
+----
+(atomic/set! myref :baz)
+
+(atomic/get myref)
+;; :baz
+----
+
+Additionally it also implements the clojure `IDeref` interface for make it easy use with `@` reader
+macro or `deref` function:
+
+[source, clojure]
+----
+(def myref (atomic/ref :foo))
+
+(deref myref)
+;; => :foo
+
+@myref
+;; => :foo
+----
+
+
+==== Special operations
+
+The atomic types usually offers some special operations, and this one is not an exception. The atomic
+refernce allow CAS operations (compare and set):
+
+[source, clojure]
+----
+(atomic/compare-and-set! myref :baz :foobar)
+;; => false
+
+(atomic/compare-and-set! myref :foo :bar)
+;; => true
+----
+
+And the "get and set" operation:
+
+[source, clojure]
+----
+(atomic/get-and-set! myref :foo)
+;; => :bar
+
+@myref
+;; => :foo
+----
+
+Additionaly it provides a way to set a value in some kind of "asynchronously" way. But take care, this
+method to set the value does not guarrantee that the change is visible instantly to all threads:
+
+[source, clojure]
+----
+(atomic/eventually-set! myref :foobar)
+----
+
+==== Atom like interface
+
+Additionally, it already implements some convenient clojure abstractions such as:
+
+.Atom like access with `swap!` and `reset!`:
+[source, clojure]
+----
+TBD
+----
+
+.Watchers support:
+[source, clojure]
+----
+TBD
+----
+
+=== Atomic Boolean
+
+This is a specialized version of Atomic Reference that is higtly optimized for boolean values. It
+has the same operations and implements the same abstractions that previously explained atomic ref.
+
+You can create an atomic boolean using `boolean` function from `futura.atomic` namespace:
+
+[source, clojure]
+----
+(atomic/boolean false)
+;; => #object[futura.atomic.AtomicBoolean 0x393bbfce {:status :ready, :val false}]
+----
+
+=== Atomic Long
 
 TBD
 
