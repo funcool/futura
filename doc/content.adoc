@@ -284,21 +284,6 @@ method to set the value does not guarrantee that the change is visible instantly
 (atomic/eventually-set! myref :foobar)
 ----
 
-==== Atom like interface
-
-Additionally, it already implements some convenient clojure abstractions such as:
-
-.Atom like access with `swap!` and `reset!`:
-[source, clojure]
-----
-TBD
-----
-
-.Watchers support:
-[source, clojure]
-----
-TBD
-----
 
 === Atomic Boolean
 
