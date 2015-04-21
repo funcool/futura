@@ -79,12 +79,114 @@ git clone https://github.com/funcool/futura
 
 == Promises
 
-TBD
+Is the abstraction that represents the result of an asynchronous operation that will be eventually
+available.
+
+Clojure comes with a builtin promise abstraction but it is designed only blocking operations, and in
+our circumstances it is very limited approach. The _futura_'s promise abstraction uses the jdk8
+completable future as underlying implementation and and all promises can be easily coerced to
+jdk future or completable future.
+
+
+=== Creating a promise.
+
+It there several different ways to create a promise in _futura_ library. You can create it inmediatelly
+resolved with initial value, inmediatelly rejected with some exception, use a "javascript" like approach
+creating it from a callback or use the clojure's approach with `deliver` like function.
+
+Let start with a basic example using the commonly known promise delivering in clojure:
+
+[source, clojure]
+----
+(require '[futura.promise :as p])
+
+(def pr (p/promise))
+
+(future
+  (Thread/sleep 200)
+  (p/deliver pr 20))]
+
+(p/then pr (fn [v]
+             (println v)))
+
+;; After 200ms it will print `20`
+----
+
+The _futura_'s promises can be used as drop in replacement for clojure promises, because them offers
+also blocking and unblocking operations:
+
+[source, clojure]
+----
+;; Access to previously defined promise in a blocking way
+
+@pr
+;; => 20
+----
+
+If the promise is resolved with an exception instance, the `deref` operation will raise that
+exception.
+
+
+=== State checking
+
+_futura_ provides useful predicates that will allow check the state of a promise in any time.
+
+Let see some examples:
+
+[source, clojure]
+----
+(def pr (p/promise 2))
+
+(p/promise? pr)
+;; => true
+
+(p/pending? pr)
+;; => false
+
+(p/fulfilled? pr)
+;; => true
+
+(p/rejected? pr)
+;; => false
+----
+
+
+=== Promise chaining
+
+Additionally, _futura_ offers powerful chaining methods for allow easy compose async computations. In
+previous examples we have seen `then` function, let see an other more complex example using it:
+
+[source, clojure]
+----
+(def pr (-> (p/promise 2)
+            (p/then inc)
+            (p/then inc)))
+
+(p/then pr (fn [v]
+             (println v)))
+
+;; It will print 4.
+----
+
+
+=== Collections of promises
+
+In some circumstances you will want wait a completion of few promises at same time, and _futura_ 
+also provides helpers for that:
+
+[source, clojure]
+----
+@(p/all [(p/promise 1) (p/promise 2)])
+;; => [1 2]
+
+@(p/any [(p/promise 1) (p/promise (ex-info "error" {}))])
+;; => 1
+----
 
 
 == Streams
 
-The streams in _futura_ library are governed by the 
+The streams in _futura_ library are governed by the
 link:http://www.reactive-streams.org/[reactive streams] iniciative and its default interfaces
 for the jvm languages but with support for the powerful clojure's features as transducers and sequence
 abstractions.
