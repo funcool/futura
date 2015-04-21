@@ -20,7 +20,8 @@ asynchronous values for the link:https://github.com/funcool/catacumba[catacumba 
 
 It there already existing libraries in clojure ecosystem such as _manifold_ that are well
 established and intends to be a "lingua franca" for asynchronous computation results. But I think
-that here there space for an alternative with different vision.
+that here there space for an alternative with different vision. For more information see
+<<difference-with-manifold,this>> faq entry.
 
 The _futura_ library at this moment provides three different building blocks:
 
@@ -210,9 +211,38 @@ You can create an atomic boolean using `boolean` function from `futura.atomic` n
 ;; => #object[futura.atomic.AtomicBoolean 0x393bbfce {:status :ready, :val false}]
 ----
 
+
 === Atomic Long
 
+This is a specialized version of Atomic Reference that is highly optimized for numeric operations
+with longs. It has the same operations and implements the same abstractions that previously explained
+`ref` and `boolean` atomic types.
+
+But additionally implements a complementary abstraction that brings some powerfull operations
+that only fits for numeric types, such as atomic counters and similars.
+
 TBD
+
+
+== FAQ
+
+[[difference-with-manifold]]
+=== What is the difference with manifold
+
+Bot libraries offers similar abstractions, _futura_ offers promises and streams and _manifold_ offers
+deferreds and streams. The main difference of this libraries is clearly philosoficaly:
+
+- _manifold_ build own abstraction for work with streams, _futura_ uses an existing and interoprable
+  abstraction.
+- _manifold_ implements its own defferred, _futura_ uses the already one defined in jdk8 (completable
+  future).
+_ _manifold_ raises own syntax abstraction (`let-flow` and similars), _futura_ implements an existing
+  monad abstraction from link:https://github.com/funcool/cats[cats library] that alread offers generic
+  let like syntax that serves for compose asynchronous computations that looks sync.
+
+
+The _futura_ library obviosly is less mature that _manifold_ because of obvios reasons that _manifold_
+exists some time ago.
 
 
 == Contribute
