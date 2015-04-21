@@ -99,6 +99,10 @@
   (deref [_]
     (.get av)))
 
+(alter-meta! #'->AtomicRef assoc :private true)
+(alter-meta! #'->AtomicLong assoc :private true)
+(alter-meta! #'->AtomicBoolean assoc :private true)
+
 (defn long
   "Create an instance of atomic long with optional
   initial value. If it is not provided, `0` will be

@@ -144,14 +144,15 @@
                                      (callback (.getCause e)))))]
       (Promise. cf'))))
 
+(alter-meta! #'->Promise assoc :private true)
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public Api
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declare completed)
 (declare deliver)
 (declare resolved)
-(declare rejected)
 
 (defmulti ^:no-doc promise* class)
 
@@ -168,7 +169,9 @@
 
 (defmethod promise* Throwable
   [e]
-  (rejected e))
+  (let [p (promise* nil)]
+    (deliver p e)
+    p))
 
 (defmethod promise* CompletableFuture
   [cf]
@@ -248,14 +251,6 @@
   [v]
   (-> (CompletableFuture/completedFuture v)
       (Promise.)))
-
-(defn rejected
-  "Return a promise in a rejected state
-  with given exception `e`."
-  [e]
-  (let [f (CompletableFuture.)]
-    (.completeExceptionally f e)
-    (Promise. f)))
 
 (defn deliver
   "Mark the promise as completed or rejected with optional
