@@ -1,6 +1,7 @@
 #!/bin/sh
 VERSION="latest"
 
+lein doc
 (cd doc; make)
 
 rm -rf /tmp/futura-doc/
