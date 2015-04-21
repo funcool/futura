@@ -23,14 +23,21 @@
 ;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 (ns futura.promise
-  (:refer-clojure :exclude [future promise])
+  "A promise implementation for Clojure that uses jdk8
+  completable futures behind the scenes."
+  (:refer-clojure :exclude [future promise deliver])
   (:require [cats.core :as m]
             [cats.protocols :as proto])
   (:import java.util.concurrent.CompletableFuture
+           java.util.concurrent.CompletionStage
            java.util.concurrent.TimeoutException
            java.util.concurrent.ExecutionException
            java.util.concurrent.CompletionException
            java.util.concurrent.TimeUnit))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; The main abstraction definition.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defprotocol IPromise
   "A promise abstraction."
@@ -41,7 +48,7 @@
   (^:private error* [_ callback] "Catch a error in a promise."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Implementation
+;; Monad type implementation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (declare then)
@@ -64,7 +71,11 @@
                     (m/with-monad ctx
                       (f v))))))))
 
-(deftype Promise [^CompletableFuture cf]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; The promise type
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(deftype Promise [^CompletionStage cf]
   proto/Context
   (get-context [_] promise-monad)
 
@@ -89,6 +100,10 @@
         (let [e' (.getCause e)]
           (.setStackTrace e' (.getStackTrace e))
           (throw e')))))
+
+  clojure.lang.IPending
+  (isRealized [_]
+    (.isDone cf))
 
   clojure.lang.IBlockingDeref
   (deref [_ ^long ms defaultvalue]
@@ -133,38 +148,45 @@
 ;; Public Api
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn future
-  "Converts a promise in a CompletableFuture instance."
-  [^Promise p]
-  (.-cf p))
+(declare completed)
+(declare deliver)
+(declare resolved)
+(declare rejected)
 
-(defn resolved
-  "Return a promise in a resolved state
-  with given `v` value."
-  [v]
-  (-> (CompletableFuture/completedFuture v)
-      (Promise.)))
+(defmulti ^:no-doc promise* class)
 
-(defn rejected
-  "Return a promise in a rejected state
-  with given exception `e`."
+(defmethod promise* clojure.lang.IFn
+  [func]
+  (let [futura (CompletableFuture.)
+        promise (Promise. futura)
+        callback #(deliver promise %)]
+    (try
+      (func callback)
+      (catch Throwable e
+        (.completeExceptionally futura e)))
+    promise))
+
+(defmethod promise* Throwable
   [e]
-  (let [f (CompletableFuture.)]
-    (.completeExceptionally f e)
-    (Promise. f)))
+  (rejected e))
 
-(defn complete
-  "Mark the promise as completed with optional value.
+(defmethod promise* CompletableFuture
+  [cf]
+  (Promise. cf))
 
-  If value is not specified `nil` will be used. If the value
-  is instance of `Throwable` the promise will be rejected."
-  ([p] (completed p nil))
-  ([p v]
-   (if (instance? Throwable v)
-     (.completeExceptionally p v)
-     (.complete p v))))
+(defmethod promise* Promise
+  [p]
+  p)
 
-(defmulti promise
+(defmethod promise* nil
+  [_]
+  (Promise. (CompletableFuture.)))
+
+(defmethod promise* :default
+  [v]
+  (resolved v))
+
+(defn promise
   "A promise constructor.
 
   This is a polymorphic function and this is a list of
@@ -187,44 +209,9 @@
 
   The body of that function can be asynchronous and the promise can
   be freely resolved in other thread."
-  (fn [& [v & rest]]
-    (if (nil? v)
-      ::pending
-      (class v))))
+  ([] (promise* nil))
+  ([v] (promise* v)))
 
-(defmethod promise clojure.lang.IFn
-  [func & [xform]]
-  (let [futura (CompletableFuture.)
-        promise' (Promise. futura)
-        complete #(complete futura %)
-        callback (if xform
-                   (xform complete)
-                   complete)]
-    (try
-      (func callback)
-      (catch Throwable e
-        (.completeExceptionally futura e)))
-    promise'))
-
-(defmethod promise Throwable
-  [e]
-  (rejected e))
-
-(defmethod promise CompletableFuture
-  [cf]
-  (Promise. cf))
-
-(defmethod promise Promise
-  [p]
-  p)
-
-(defmethod promise ::pending
-  []
-  (Promise. (CompletableFuture.)))
-
-(defmethod promise :default
-  [v]
-  (resolved v))
 
 (defn promise?
   "Returns true if `p` is a promise
@@ -250,18 +237,53 @@
   [p]
   (pending* p))
 
+(defn future
+  "Converts a promise in a CompletableFuture instance."
+  [^Promise p]
+  (.-cf p))
+
+(defn resolved
+  "Return a promise in a resolved state
+  with given `v` value."
+  [v]
+  (-> (CompletableFuture/completedFuture v)
+      (Promise.)))
+
+(defn rejected
+  "Return a promise in a rejected state
+  with given exception `e`."
+  [e]
+  (let [f (CompletableFuture.)]
+    (.completeExceptionally f e)
+    (Promise. f)))
+
+(defn deliver
+  "Mark the promise as completed or rejected with optional
+  value.
+
+  If value is not specified `nil` will be used. If the value
+  is instance of `Throwable` the promise will be rejected."
+  ([p] (deliver p nil))
+  ([p v]
+   {:pre [(promise? p)]}
+   (let [f (future p)]
+     (if (instance? Throwable v)
+       (.completeExceptionally f v)
+       (.complete f v)))))
+
 (defn all
   "Given an array of promises, return a promise
   that is fulfilled  when all the items in the
   array are fulfilled."
   [promises]
-  (let [xform (comp
-               (map promise)
-               (map future))]
-    (->> (sequence xform promises)
-         (into-array CompletableFuture)
-         (CompletableFuture/allOf)
-         (Promise.))))
+  (let [promises (map promise promises)
+        futures (map future promises)
+        promise' (->> (into-array CompletableFuture futures)
+                      (CompletableFuture/allOf)
+                      (Promise.))]
+    (then promise' (fn [_]
+                     (mapv deref promises)))))
+
 
 (defn any
   "Given an array of promises, return a promise

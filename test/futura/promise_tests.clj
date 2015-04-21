@@ -25,6 +25,13 @@
   (let [p1 (p/promise)
         p2 (p/promise p1)]
     (is (identical? p1 p2)))
+
+  (let [p1 (p/promise)
+        _  (p/deliver p1 2)]
+    (is (p/promise? p1))
+    (is (p/fulfilled? p1))
+    (is (not (p/rejected? p1)))
+    (is (not (p/pending? p1))))
 )
 
 (deftest promise-extract
@@ -39,33 +46,40 @@
 )
 
 (deftest promise-chaining
-  (let [p1 (p/promise (fn [complete]
+  (let [p1 (p/promise (fn [deliver]
                         (async/thread
-                          (complete 2))))]
+                          (deliver 2))))]
     (is (= 2 @p1)))
-  (let [p1 (p/promise (fn [complete]
+  (let [p1 (p/promise (fn [deliver]
                         (async/thread
                           (Thread/sleep 200)
-                          (complete 2))))
+                          (deliver 2))))
         p2 (p/then p1 inc)
         p3 (p/then p2 inc)]
     (is (= 4 @p3)))
 
-  (let [p1 (p/promise (fn [complete]
+  (let [p1 (p/promise (fn [deliver]
                         (async/thread
                           (Thread/sleep 200)
-                          (complete (ex-info "foobar" {})))))]
+                          (deliver (ex-info "foobar" {})))))]
     (try
       @p1
       (catch clojure.lang.ExceptionInfo e
         (is (= "foobar" (.getMessage e))))))
 
-  (let [p1 (p/promise (fn [complete]
+  (let [p1 (p/promise (fn [deliver]
                         (async/thread
-                          (complete 1))))
+                          (deliver 1))))
         p2 (p/then p1 (fn [v]
                         (throw (ex-info "foobar" {:msg "foo"}))))
         p3 (p/catch p2 (fn [e]
                          (:msg (.getData e))))]
     (is (= "foo" @p3)))
+
+
+  (let [p1 (p/all [(p/promise 1) (p/promise 2)])]
+    (is (= @p1 [1 2])))
+
+  (let [p1 (p/any [(p/promise 1) (p/promise (ex-info "" {}))])]
+    (is (= @p1 1)))
 )
