@@ -224,13 +224,13 @@
 
 (defn fulfilled?
   "Returns true if promise `p` is
-  already fulfilled."
+  completed successfully."
   [p]
   (fulfilled* p))
 
 (defn rejected?
   "Returns true if promise `p` is
-  already rejected."
+  completed exceptionally."
   [p]
   (rejected* p))
 
