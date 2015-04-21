@@ -308,7 +308,43 @@ with longs. It has the same operations and implements the same abstractions that
 But additionally implements a complementary abstraction that brings some powerfull operations
 that only fits for numeric types, such as atomic counters and similars.
 
-TBD
+
+You can create an atomic long using `long` function from `futura.atomic` namespace:
+
+[source, clojure]
+----
+(atomic/long 0)
+;; => #object[futura.atomic.AtomicLong 0x393bbfce {:status :ready, :val 0}]
+----
+
+
+Here some examples using the functions defined for numeric atomic types, such as
+"get and increment/decrement" operations:
+
+[source, clojure]
+----
+(def mylong (atomic/long 0))
+
+(atomic/get-and-inc! mylong)
+;; => 0
+
+(atomic/get-and-dec! mylong)
+;; => 1
+
+@mylong
+;; => 0
+----
+
+And optionally you can increment it with user specified delta:
+
+[source, clojure]
+----
+(atomic/get-and-add! mylong 10)
+;; => 0
+
+@mylong
+;; => 10
+----
 
 
 == FAQ
