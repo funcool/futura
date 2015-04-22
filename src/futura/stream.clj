@@ -30,7 +30,7 @@
       (reify Subscription
         (^void request [_ ^long n]
           (when-not @completed
-            (put! requests n)))
+            (async/put! requests n)))
         (^void cancel [_]
           (atomic/set! completed true)
           (async/close! requests))))))
