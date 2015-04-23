@@ -125,8 +125,6 @@
 (defprotocol IPublisher
   (publisher* [source xform] "Create a publisher."))
 
-;; Match all collections that can be converted into Seqs.
-
 (extend-protocol IPublisher
   java.lang.Long
   (publisher* [bufflen xform]
@@ -134,11 +132,12 @@
       (reify
         IPushStream
         (push [_ v]
-          (p/promise (fn [complete]
-                       (async/put! source v (fn [res]
-                                              (if res
-                                                (complete true)
-                                                (complete false)))))))
+          (let [p (p/promise)]
+            (async/put! source v (fn [res]
+                                   (if res
+                                     (p/deliver p true)
+                                     (p/deliver p false))))
+            p))
         (complete [_]
           (async/close! source))
 
