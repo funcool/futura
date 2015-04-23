@@ -84,11 +84,13 @@
                 (atomic/set! completed true))))))
       (onError [_ e]
         (atomic/set! completed true)
-        (.onError (rf subscriber) e))
+        (rf subscriber)
+        (.onError subscriber e))
       (onComplete [_]
         (when-not @completed
           (atomic/set! completed true)
-          (.onComplete (rf subscriber)))))))
+          (rf subscriber)
+          (.onComplete subscriber))))))
 
 (defn- subscribe-once
   [^Publisher p callback]

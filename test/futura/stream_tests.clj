@@ -104,10 +104,10 @@
         c (stream/publisher->chan p)]
     (is (= [2 3] (<!! (async/into [] c)))))
 
-  (let [p (->> (stream/publisher [1 2 3 4])
+  (let [p (->> (stream/publisher [1 2 3 4 5])
                (stream/publisher (partition-all 2)))
         c (stream/publisher->chan p)]
-    (is (= [[1 2] [3 4]] (<!! (async/into [] c)))))
+    (is (= [[1 2] [3 4] [5]] (<!! (async/into [] c)))))
 )
 
 (deftest push-stream
