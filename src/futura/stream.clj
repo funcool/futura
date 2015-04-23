@@ -61,10 +61,9 @@
 
 (defn- proxy-subscriber
   [^Publisher p xform subscriber]
-  (let [transform (fn
+  (let [rf (xform (fn
                     ([s] s)
-                    ([s v] (.onNext s v)))
-        rf (xform transform)
+                    ([s v] (.onNext s v))))
         completed (atomic/boolean false)
         subscription (atomic/ref nil)]
     (reify Subscriber
@@ -74,10 +73,15 @@
       (onNext [_ v]
         (when-not @completed
           (let [res (rf subscriber v)]
-            (when (reduced? res)
-              (.cancel @subscription)
-              (.onComplete (rf subscriber))
-              (atomic/set! completed true)))))
+            (cond
+              (identical? res subscriber)
+              (.request @subscription 1)
+
+              (reduced? res)
+              (do
+                (.cancel @subscription)
+                (.onComplete (rf subscriber))
+                (atomic/set! completed true))))))
       (onError [_ e]
         (atomic/set! completed true)
         (.onError (rf subscriber) e))
@@ -221,7 +225,6 @@
 (defn filter
   [f ^Publisher source]
   (publisher* source (clojure.core/filter f)))
-
 
 (defn take!
   "Takes a value from a stream, returning a deferred that yields the value
