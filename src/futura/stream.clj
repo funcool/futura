@@ -179,7 +179,7 @@
 
   nil
   (publisher* [source xform]
-    (publisher* 1 xform))
+    (publisher* nil xform))
 
   Publisher
   (publisher* [source xform]
