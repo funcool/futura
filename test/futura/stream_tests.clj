@@ -103,5 +103,11 @@
 
         c (stream/publisher->chan p)]
     (is (= [2 3] (<!! (async/into [] c)))))
-
 )
+
+(deftest push-stream
+  (let [p (stream/publisher 2)]
+    (stream/put! p 1)
+    (stream/put! p 2)
+    (is (= @(stream/take! p) 1))
+    (is (= @(stream/take! p) 2))))
