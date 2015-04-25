@@ -28,6 +28,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- chan->subscription
+  "Coerce a core.async channel to an instance
+  of subscription interface."
   [subscriber source xform]
   (let [completed (atomic/boolean false)
         requests (async/chan)
@@ -64,6 +66,8 @@
           (async/close! requests))))))
 
 (defn- promise->subscription
+  "Coerce a promise instance to an instance
+  of subscription interface."
   [subscriber source]
   (let [canceled (atomic/boolean false)
         completed (atomic/boolean false)]
@@ -79,6 +83,10 @@
         (atomic/set! canceled true)))))
 
 (defn- proxy-subscriber
+  "Create a proxy subscriber.
+  The main purpose of this proxy is apply some
+  kind of transformations to the proxied publisher
+  using transducers."
   [^Publisher p xform subscriber]
   (let [rf (xform (fn
                     ([s] s)
@@ -112,6 +120,8 @@
           (.onComplete subscriber))))))
 
 (defn- subscribe-once
+  "Create a subscription instance that only
+  subscribes for one value."
   [^Publisher p callback]
   (let [subscription (atomic/ref nil)
         completed (atomic/boolean false)
