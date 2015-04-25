@@ -1,5 +1,4 @@
 (ns futura.stream
-  (:refer-clojure :exclude [map filter])
   (:require [clojure.core.async :refer [<! >! go go-loop] :as async]
             [manifold.stream :as ms]
             [manifold.deferred :as md]
@@ -10,11 +9,29 @@
            org.reactivestreams.Subscriber
            org.reactivestreams.Subscription))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Default Abstractions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(definterface IPushStream
+  (push [v] "Push a value into stream.")
+  (complete [] "Mark publisher as complete."))
+
+(definterface IPullStream
+  (pull [] "Pull a value from the stream."))
+
+(defprotocol IPublisher
+  (publisher* [source xform] "Create a publisher."))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Implementation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defn- chan->subscription
   [subscriber source xform]
   (let [completed (atomic/boolean false)
         requests (async/chan)
-        xform (or xform (clojure.core/map identity))
+        xform (or xform (map identity))
         rf (xform (fn
                     ([s] s)
                     ([s v] (.onNext s v))))]
@@ -117,103 +134,132 @@
                          (atomic/compare-and-set! completed false true))))]
     (.subscribe p subscriber)))
 
-(definterface IPushStream
-  (push [v] "Push a value into stream.")
-  (complete [] "Mark publisher as complete."))
+(defn- promise->publisher
+  "Create a publisher with promise as source."
+  [source xform]
+  (reify Publisher
+    (^void subscribe [_ ^Subscriber subscriber]
+      (let [subscription (promise->subscription subscriber source)]
+        (.onSubscribe subscriber subscription)))))
 
-(definterface IPullStream
-  (pull [] "Pull a value from the stream."))
+(defn- channel->publisher
+  "Create a publisher with core.async channel as source."
+  [source xform]
+  (reify Publisher
+    (^void subscribe [_ ^Subscriber subscriber]
+      (let [subscription (chan->subscription subscriber source xform)]
+        (.onSubscribe subscriber subscription)))))
 
-(defprotocol IPublisher
-  (publisher* [source xform] "Create a publisher."))
+(defn- publisher->publisher
+  "Create a publisher from an other publisher."
+  [source xform]
+  (reify Publisher
+    (^void subscribe [_ ^Subscriber subscriber]
+      (let [subscriber (proxy-subscriber source xform subscriber)]
+        (.subscribe source subscriber)))))
+
+(defn- iterable->publisher
+  "Create a publisher with iterable as source."
+  [source xform]
+  (let [source' (async/chan)
+        _       (async/onto-chan source' (seq source))]
+    (reify
+      IPullStream
+      (pull [p]
+        (p/promise #(subscribe-once p %)))
+
+      Publisher
+      (^void subscribe [_ ^Subscriber subscriber]
+        (let [subscription (chan->subscription subscriber source' xform)]
+          (.onSubscribe subscriber subscription))))))
+
+(defn- manifold-stream->publisher
+  "Create a publisher with manifold stream as source."
+  [source xform]
+  (let [source' (async/chan)]
+    (ms/connect source source')
+    (reify
+      IPushStream
+      (push [_ v]
+        (p/promise (ms/put! source v)))
+      (complete [_]
+        (ms/close! source))
+
+      IPullStream
+      (pull [p]
+        (p/promise #(subscribe-once p %)))
+
+      Publisher
+      (^void subscribe [_ ^Subscriber subscriber]
+        (let [subscription (chan->subscription subscriber source' xform)]
+          (.onSubscribe subscriber subscription))))))
+
+(defn- empty->publisher
+  "Creates an empty publisher that implements the
+  push stream protocol."
+  [bufflen xform]
+  (let [source (async/chan bufflen)]
+    (reify
+      IPushStream
+      (push [_ v]
+        (let [p (p/promise)]
+          (async/put! source v (fn [res]
+                                 (if res
+                                   (p/deliver p true)
+                                   (p/deliver p false))))
+          p))
+      (complete [_]
+        (async/close! source))
+
+      IPullStream
+      (pull [p]
+        (p/promise #(subscribe-once p %)))
+
+      Publisher
+      (^void subscribe [_ ^Subscriber subscriber]
+        (let [subscription (chan->subscription subscriber source xform)]
+          (.onSubscribe subscriber subscription))))))
 
 (extend-protocol IPublisher
+  nil
+  (publisher* [source xform]
+    (empty->publisher source xform))
+
   java.lang.Long
-  (publisher* [bufflen xform]
-    (let [source (async/chan bufflen)]
-      (reify
-        IPushStream
-        (push [_ v]
-          (let [p (p/promise)]
-            (async/put! source v (fn [res]
-                                   (if res
-                                     (p/deliver p true)
-                                     (p/deliver p false))))
-            p))
-        (complete [_]
-          (async/close! source))
-
-        IPullStream
-        (pull [p]
-          (p/promise #(subscribe-once p %)))
-
-        Publisher
-        (^void subscribe [_ ^Subscriber subscriber]
-          (let [subscription (chan->subscription subscriber source xform)]
-            (.onSubscribe subscriber subscription))))))
+  (publisher* [source xform]
+    (empty->publisher source xform))
 
   java.lang.Iterable
   (publisher* [source xform]
-    (let [source' (async/chan)
-          _       (async/onto-chan source' (seq source))]
-      (reify
-        IPullStream
-        (pull [p]
-          (p/promise #(subscribe-once p %)))
-
-        Publisher
-        (^void subscribe [_ ^Subscriber subscriber]
-          (let [subscription (chan->subscription subscriber source' xform)]
-            (.onSubscribe subscriber subscription))))))
+    (iterable->publisher source xform))
 
   manifold.stream.default.Stream
   (publisher* [source xform]
-    (let [source' (async/chan)]
-      (ms/connect source source')
-      (reify
-        IPushStream
-        (push [_ v]
-          (p/promise (ms/put! source v)))
-        (complete [_]
-          (ms/close! source))
-
-        IPullStream
-        (pull [p]
-          (p/promise #(subscribe-once p %)))
-
-        Publisher
-        (^void subscribe [_ ^Subscriber subscriber]
-          (let [subscription (chan->subscription subscriber source' xform)]
-            (.onSubscribe subscriber subscription))))))
+    (manifold-stream->publisher source xform))
 
   clojure.core.async.impl.channels.ManyToManyChannel
   (publisher* [source xform]
-    (reify Publisher
-      (^void subscribe [_ ^Subscriber subscriber]
-        (let [subscription (chan->subscription subscriber source xform)]
-          (.onSubscribe subscriber subscription)))))
+    (channel->publisher source xform))
 
-  futura.promise.Promise
+  manifold.deferred.IDeferred
   (publisher* [source xform]
-    (reify Publisher
-      (^void subscribe [_ ^Subscriber subscriber]
-        (let [subscription (promise->subscription subscriber source)]
-          (.onSubscribe subscriber subscription)))))
+    (publisher* (p/promise source) xform))
 
   CompletableFuture
   (publisher* [source xform]
     (publisher* (p/promise source) xform))
 
-  nil
+  futura.promise.Promise
   (publisher* [source xform]
-    (publisher* nil xform))
+    (promise->publisher source xform))
 
   Publisher
   (publisher* [source xform]
-    (reify Publisher
-      (^void subscribe [_ ^Subscriber subscriber]
-        (let [subscriber (proxy-subscriber source xform subscriber)]
-          (.subscribe source subscriber))))))
+    (publisher->publisher source xform)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Public Api
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn publisher
   "A polymorphic publisher constructor."
@@ -240,14 +286,6 @@
                         (async/close! chan)))]
      (.subscribe p subscriber)
      chan)))
-
-(defn map
-  [f ^Publisher source]
-  (publisher* source (clojure.core/map f)))
-
-(defn filter
-  [f ^Publisher source]
-  (publisher* source (clojure.core/filter f)))
 
 (defn take!
   "Takes a value from a stream, returning a deferred that yields the value
