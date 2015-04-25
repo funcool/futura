@@ -27,7 +27,8 @@
   completable futures behind the scenes."
   (:refer-clojure :exclude [future promise deliver])
   (:require [cats.core :as m]
-            [cats.protocols :as proto])
+            [cats.protocols :as proto]
+            [manifold.deferred :as md])
   (:import java.util.concurrent.CompletableFuture
            java.util.concurrent.CompletionStage
            java.util.concurrent.TimeoutException
@@ -184,6 +185,15 @@
 (defmethod promise* Promise
   [p]
   p)
+
+(defmethod promise* manifold.deferred.IDeferred
+  [d]
+  (let [pr (promise* nil)
+        callback #(deliver pr %)]
+    (md/on-realized d callback callback)
+    pr))
+
+(prefer-method promise* manifold.deferred.IDeferred clojure.lang.IFn)
 
 (defmethod promise* nil
   [_]

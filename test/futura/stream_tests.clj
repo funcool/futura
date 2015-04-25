@@ -3,6 +3,7 @@
             [clojure.test :refer :all]
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
+            [manifold.stream :as ms]
             [futura.stream :as stream]
             [futura.promise :as p])
   (:import org.reactivestreams.Publisher
@@ -118,3 +119,19 @@
     (stream/put! p 2)
     (is (= @(stream/take! p) 1))
     (is (= @(stream/take! p) 2))))
+
+(deftest push-stream-manifold
+  (let [mst (ms/stream)
+        p (stream/publisher mst)]
+    (ms/put! mst 1)
+    (ms/put! mst 2)
+    (is (= @(stream/take! p) 1))
+    (is (= @(stream/take! p) 2)))
+
+  (let [mst (ms/stream)
+        p (stream/publisher mst)]
+    (stream/put! p 1)
+    (stream/put! p 2)
+    (is (= @(stream/take! p) 1))
+    (is (= @(stream/take! p) 2)))
+)

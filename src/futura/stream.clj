@@ -1,6 +1,8 @@
 (ns futura.stream
   (:refer-clojure :exclude [map filter])
   (:require [clojure.core.async :refer [<! >! go go-loop] :as async]
+            [manifold.stream :as ms]
+            [manifold.deferred :as md]
             [futura.atomic :as atomic]
             [futura.promise :as p])
   (:import java.util.concurrent.CompletableFuture
@@ -155,6 +157,26 @@
     (let [source' (async/chan)
           _       (async/onto-chan source' (seq source))]
       (reify
+        IPullStream
+        (pull [p]
+          (p/promise #(subscribe-once p %)))
+
+        Publisher
+        (^void subscribe [_ ^Subscriber subscriber]
+          (let [subscription (chan->subscription subscriber source' xform)]
+            (.onSubscribe subscriber subscription))))))
+
+  manifold.stream.default.Stream
+  (publisher* [source xform]
+    (let [source' (async/chan)]
+      (ms/connect source source')
+      (reify
+        IPushStream
+        (push [_ v]
+          (p/promise (ms/put! source v)))
+        (complete [_]
+          (ms/close! source))
+
         IPullStream
         (pull [p]
           (p/promise #(subscribe-once p %)))

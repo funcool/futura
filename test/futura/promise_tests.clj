@@ -3,6 +3,7 @@
             [clojure.test :refer :all]
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
+            [manifold.deferred :as md]
             [cats.core :as m]
             [futura.promise :as p]))
 
@@ -81,4 +82,18 @@
 
   (let [p1 (p/any [(p/promise 1) (p/promise (ex-info "" {}))])]
     (is (= @p1 1)))
+)
+
+
+(deftest promise-manifold
+  (let [df (md/deferred)
+        pr (p/promise df)]
+    (is (md/success! df 1))
+    (is (= @pr 1)))
+
+  (let [df (md/deferred)
+        pr (p/promise df)]
+    (is (md/error! df (ex-info "foobar" {})))
+    (let [e (m/extract pr)]
+      (is (= "foobar" (.getMessage e)))))
 )
