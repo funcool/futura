@@ -42,7 +42,8 @@
 (defprotocol IPromise
   "A promise abstraction."
   (^:private rejected* [_] "Returns true if a promise is rejected.")
-  (^:private fulfilled* [_] "Returns true if a promise is fulfiled.")
+  (^:private resolved* [_] "Returns true if a promise is resolved.")
+  (^:private done* [_] "Retutns true if a promise is already done.")
   (^:private pending* [_] "Retutns true if a promise is stil pending.")
   (^:private then* [_ callback] "Chain a promise.")
   (^:private error* [_ callback] "Catch a error in a promise."))
@@ -124,10 +125,13 @@
   (rejected* [_]
     (.isCompletedExceptionally cf))
 
-  (fulfilled* [_]
+  (resolved* [_]
     (and (not (.isCompletedExceptionally cf))
          (not (.isCancelled cf))
          (.isDone cf)))
+
+  (done* [_]
+    (.isDone cf))
 
   (pending* [_]
     (not (.isDone cf)))
@@ -222,17 +226,23 @@
   [p]
   (instance? Promise p))
 
-(defn fulfilled?
+(defn done?
   "Returns true if promise `p` is
   completed successfully."
   [p]
-  (fulfilled* p))
+  (done* p))
 
 (defn rejected?
   "Returns true if promise `p` is
   completed exceptionally."
   [p]
   (rejected* p))
+
+(defn resolved?
+  "Returns true if promise `p` is
+  already successfuly resolved."
+  [p]
+  (resolved* p))
 
 (defn pending?
   "Returns true if promise `p` is
