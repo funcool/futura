@@ -113,6 +113,23 @@
     (is (= [[2 3] [4 5] [6]] (<!! (async/into [] c)))))
 )
 
+(deftest publisher-seqable
+  (let [p (stream/publisher [1 2 3 4])
+        v (into [] p)]
+    (is (= v [1 2 3 4])))
+
+  (let [source (async/chan)
+        p (stream/publisher source)]
+    (async/go-loop [n 10]
+      (if (pos? n)
+        (do
+          (async/>! source (inc n))
+          (recur (dec n)))
+        (async/close! source)))
+    (let [v (into [] p)]
+      (is (= [11 10 9 8 7 6 5 4 3 2] v))))
+)
+
 (deftest push-stream
   (let [p (stream/publisher 2)]
     (stream/put! p 1)

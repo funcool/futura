@@ -5,6 +5,7 @@
             [futura.atomic :as atomic]
             [futura.promise :as p])
   (:import java.util.concurrent.CompletableFuture
+           clojure.lang.Seqable
            org.reactivestreams.Publisher
            org.reactivestreams.Subscriber
            org.reactivestreams.Subscription))
@@ -144,6 +145,16 @@
                          (atomic/compare-and-set! completed false true))))]
     (.subscribe p subscriber)))
 
+(declare take!)
+
+(defn- publisher->seq
+  "Coerce a publisher in a blocking seq."
+  [^Publisher p]
+  (lazy-seq
+   (let [v @(take! p)]
+     (when v
+       (cons v (lazy-seq (publisher->seq p)))))))
+
 (defn- promise->publisher
   "Create a publisher with promise as source."
   [source xform]
@@ -155,7 +166,16 @@
 (defn- channel->publisher
   "Create a publisher with core.async channel as source."
   [source xform]
-  (reify Publisher
+  (reify
+    Seqable
+    (seq [p]
+      (publisher->seq p))
+
+    IPullStream
+    (pull [p]
+      (p/promise #(subscribe-once p %)))
+
+    Publisher
     (^void subscribe [_ ^Subscriber subscriber]
       (let [subscription (chan->subscription subscriber source xform)]
         (.onSubscribe subscriber subscription)))))
@@ -164,6 +184,14 @@
   "Create a publisher from an other publisher."
   [source xform]
   (reify Publisher
+    Seqable
+    (seq [p]
+      (publisher->seq p))
+
+    IPullStream
+    (pull [p]
+      (p/promise #(subscribe-once p %)))
+
     (^void subscribe [_ ^Subscriber subscriber]
       (let [subscriber (proxy-subscriber source xform subscriber)]
         (.subscribe source subscriber)))))
@@ -177,6 +205,10 @@
       IPullStream
       (pull [p]
         (p/promise #(subscribe-once p %)))
+
+      Seqable
+      (seq [p]
+        (publisher->seq p))
 
       Publisher
       (^void subscribe [_ ^Subscriber subscriber]
@@ -199,6 +231,10 @@
       (pull [p]
         (p/promise #(subscribe-once p %)))
 
+      Seqable
+      (seq [p]
+        (publisher->seq p))
+
       Publisher
       (^void subscribe [_ ^Subscriber subscriber]
         (let [subscription (chan->subscription subscriber source' xform)]
@@ -220,6 +256,10 @@
           p))
       (complete [_]
         (async/close! source))
+
+      Seqable
+      (seq [p]
+        (publisher->seq p))
 
       IPullStream
       (pull [p]
