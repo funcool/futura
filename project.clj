@@ -13,7 +13,7 @@
   :test-paths ["test"]
   :jar-exclusions [#"\.swp|\.swo|user.clj"]
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
-  :profiles {:dev {:dependencies [[org.clojure/clojure "1.7.0-beta1"]]
+  :profiles {:dev {:dependencies [[org.clojure/clojure "1.7.0-beta2"]]
                    :codeina {:sources ["src"]
                              :language :clojure
                              :output-dir "doc/api"}
