@@ -9,27 +9,26 @@
 (deftest promise-constructors
   (let [p1 (p/promise 1)]
     (is (p/promise? p1))
-    (is (p/fulfilled? p1))
+    (is (p/resolved? p1))
     (is (not (p/rejected? p1)))
     (is (not (p/pending? p1))))
   (let [p1 (p/promise)]
     (is (p/promise? p1))
-    (is (not (p/fulfilled? p1)))
+    (is (not (p/resolved? p1)))
     (is (not (p/rejected? p1)))
     (is (p/pending? p1)))
   (let [p1 (p/promise (ex-info "" {}))]
     (is (p/promise? p1))
-    (is (not (p/fulfilled? p1)))
+    (is (not (p/resolved? p1)))
     (is (p/rejected? p1))
     (is (not (p/pending? p1))))
   (let [p1 (p/promise)
         p2 (p/promise p1)]
     (is (identical? p1 p2)))
-
   (let [p1 (p/promise)
         _  (p/deliver p1 2)]
     (is (p/promise? p1))
-    (is (p/fulfilled? p1))
+    (is (p/resolved? p1))
     (is (not (p/rejected? p1)))
     (is (not (p/pending? p1))))
 )
