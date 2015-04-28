@@ -28,43 +28,48 @@
 ;; Implementation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn- chan->subscription
+(defn chan->subscription
   "Coerce a core.async channel to an instance
   of subscription interface."
-  [subscriber source xform]
-  (let [completed (atomic/boolean false)
-        requests (async/chan)
-        xform (or xform (map identity))
-        rf (xform (fn
-                    ([s] s)
-                    ([s v] (.onNext s v))))]
-    (letfn [(pipeline [n]
-              (go-loop [n n]
-                (when (and (pos? n) (not @completed))
-                  (if-let [value (<! source)]
-                    (let [res (rf subscriber value)]
-                      (if (reduced? res)
-                        (do
-                          (.onComplete (rf subscriber))
-                          (async/close! requests)
-                          (atomic/compare-and-set! completed false true))
-                        (recur (dec n))))
-                    (do
-                      (.onComplete subscriber)
-                      (async/close! requests)
-                      (atomic/compare-and-set! completed false true))))))]
-      (go-loop []
-        (when-let [n (<! requests)]
-          (when-not @completed
-            (<! (pipeline n))
-            (recur))))
-      (reify Subscription
-        (^void request [_ ^long n]
-          (when-not @completed
-            (async/put! requests n)))
-        (^void cancel [_]
-          (atomic/set! completed true)
-          (async/close! requests))))))
+  {:no-doc true}
+  ([subscriber source xform]
+   (chan->subscription subscriber source xform false))
+  ([subscriber source xform close]
+   (let [completed (atomic/boolean false)
+         requests (async/chan)
+         xform (or xform (map identity))
+         rf (xform (fn
+                     ([s] s)
+                     ([s v] (.onNext s v))))]
+     (letfn [(pipeline [n]
+               (go-loop [n n]
+                 (when (and (pos? n) (not @completed))
+                   (if-let [value (<! source)]
+                     (let [res (rf subscriber value)]
+                       (if (reduced? res)
+                         (do
+                           (.onComplete (rf subscriber))
+                           (async/close! requests)
+                           (when close (async/close! source))
+                           (atomic/compare-and-set! completed false true))
+                         (recur (dec n))))
+                     (do
+                       (.onComplete subscriber)
+                       (async/close! requests)
+                       (atomic/compare-and-set! completed false true))))))]
+       (go-loop []
+         (when-let [n (<! requests)]
+           (when-not @completed
+             (<! (pipeline n))
+             (recur))))
+       (reify Subscription
+         (^void request [_ ^long n]
+           (when-not @completed
+             (async/put! requests n)))
+         (^void cancel [_]
+           (atomic/set! completed true)
+           (when close (async/close! source))
+           (async/close! requests)))))))
 
 (defn- promise->subscription
   "Coerce a promise instance to an instance
