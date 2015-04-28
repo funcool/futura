@@ -220,30 +220,24 @@
         (let [subscription (chan->subscription subscriber source' xform)]
           (.onSubscribe subscriber subscription))))))
 
-(defn- manifold-stream->publisher
+(defn- stream->publisher
   "Create a publisher with manifold stream as source."
   [source xform]
-  (let [source' (async/chan)]
-    (ms/connect source source')
-    (reify
-      IPushStream
-      (push [_ v]
-        (p/promise (ms/put! source v)))
-      (complete [_]
-        (ms/close! source))
+  (reify
+    IPullStream
+    (pull [p]
+      (p/promise #(subscribe-once p %)))
 
-      IPullStream
-      (pull [p]
-        (p/promise #(subscribe-once p %)))
+    Seqable
+    (seq [p]
+      (publisher->seq p))
 
-      Seqable
-      (seq [p]
-        (publisher->seq p))
-
-      Publisher
-      (^void subscribe [_ ^Subscriber subscriber]
-        (let [subscription (chan->subscription subscriber source' xform)]
-          (.onSubscribe subscriber subscription))))))
+    Publisher
+    (^void subscribe [_ ^Subscriber subscriber]
+      (let [source' (async/chan)
+            subscription (chan->subscription subscriber source' xform true)]
+        (ms/connect source source')
+        (.onSubscribe subscriber subscription)))))
 
 (defn- empty->publisher
   "Creates an empty publisher that implements the
@@ -290,7 +284,7 @@
 
   manifold.stream.default.Stream
   (publisher* [source xform]
-    (manifold-stream->publisher source xform))
+    (stream->publisher source xform))
 
   clojure.core.async.impl.channels.ManyToManyChannel
   (publisher* [source xform]

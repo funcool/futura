@@ -144,11 +144,4 @@
     (ms/put! mst 2)
     (is (= @(stream/take! p) 1))
     (is (= @(stream/take! p) 2)))
-
-  (let [mst (ms/stream)
-        p (stream/publisher mst)]
-    (stream/put! p 1)
-    (stream/put! p 2)
-    (is (= @(stream/take! p) 1))
-    (is (= @(stream/take! p) 2)))
 )
