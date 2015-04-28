@@ -32,44 +32,36 @@
   "Coerce a core.async channel to an instance
   of subscription interface."
   {:no-doc true}
-  ([subscriber source xform]
-   (chan->subscription subscriber source xform false))
-  ([subscriber source xform close]
+  ([subscriber source]
+   (chan->subscription subscriber source false))
+  ([subscriber source close]
    (let [completed (atomic/boolean false)
          requests (async/chan)
-         xform (or xform (map identity))
-         rf (xform (fn
-                     ([s] s)
-                     ([s v] (.onNext s v))))]
-     (letfn [(pipeline [n]
-               (go-loop [n n]
-                 (when (and (pos? n) (not @completed))
-                   (if-let [value (<! source)]
-                     (let [res (rf subscriber value)]
-                       (if (reduced? res)
-                         (do
-                           (.onComplete (rf subscriber))
-                           (async/close! requests)
-                           (when close (async/close! source))
-                           (atomic/compare-and-set! completed false true))
-                         (recur (dec n))))
-                     (do
-                       (.onComplete subscriber)
-                       (async/close! requests)
-                       (atomic/compare-and-set! completed false true))))))]
-       (go-loop []
-         (when-let [n (<! requests)]
-           (when-not @completed
-             (<! (pipeline n))
-             (recur))))
-       (reify Subscription
-         (^void request [_ ^long n]
-           (when-not @completed
-             (async/put! requests n)))
-         (^void cancel [_]
-           (atomic/set! completed true)
-           (when close (async/close! source))
-           (async/close! requests)))))))
+         pipeline (fn [n]
+                    (go-loop [n n]
+                      (when (and (pos? n) (not @completed))
+                        (if-let [value (<! source)]
+                          (do
+                            (.onNext subscriber value)
+                            (recur (dec n)))
+                          (do
+                            (.onComplete subscriber)
+                            (async/close! requests)
+                            (when close (async/close! source))
+                            (atomic/compare-and-set! completed false true))))))]
+     (go-loop []
+       (when-let [n (<! requests)]
+         (when-not @completed
+           (<! (pipeline n))
+           (recur))))
+     (reify Subscription
+       (^void request [_ ^long n]
+         (when-not @completed
+           (async/put! requests n)))
+       (^void cancel [_]
+         (atomic/set! completed true)
+         (when close (async/close! source))
+         (async/close! requests))))))
 
 (defn- promise->subscription
   "Coerce a promise instance to an instance
@@ -162,7 +154,7 @@
 
 (defn- promise->publisher
   "Create a publisher with promise as source."
-  [source xform]
+  [source]
   (reify Publisher
     (^void subscribe [_ ^Subscriber subscriber]
       (let [subscription (promise->subscription subscriber source)]
@@ -170,6 +162,23 @@
 
 (defn- channel->publisher
   "Create a publisher with core.async channel as source."
+  [source]
+  (reify
+    Seqable
+    (seq [p]
+      (publisher->seq p))
+
+    IPullStream
+    (pull [p]
+      (p/promise #(subscribe-once p %)))
+
+    Publisher
+    (^void subscribe [_ ^Subscriber subscriber]
+      (let [subscription (chan->subscription subscriber source)]
+        (.onSubscribe subscriber subscription)))))
+
+(defn- publisher->publisher
+  "Create a publisher from an other publisher."
   [source xform]
   (reify
     Seqable
@@ -182,30 +191,14 @@
 
     Publisher
     (^void subscribe [_ ^Subscriber subscriber]
-      (let [subscription (chan->subscription subscriber source xform)]
-        (.onSubscribe subscriber subscription)))))
-
-(defn- publisher->publisher
-  "Create a publisher from an other publisher."
-  [source xform]
-  (reify Publisher
-    Seqable
-    (seq [p]
-      (publisher->seq p))
-
-    IPullStream
-    (pull [p]
-      (p/promise #(subscribe-once p %)))
-
-    (^void subscribe [_ ^Subscriber subscriber]
       (let [subscriber (proxy-subscriber source xform subscriber)]
         (.subscribe source subscriber)))))
 
 (defn- iterable->publisher
   "Create a publisher with iterable as source."
-  [source xform]
-  (let [source' (async/chan)
-        _       (async/onto-chan source' (seq source))]
+  [source]
+  (let [source' (async/chan)]
+    (async/onto-chan source' (seq source))
     (reify
       IPullStream
       (pull [p]
@@ -217,32 +210,32 @@
 
       Publisher
       (^void subscribe [_ ^Subscriber subscriber]
-        (let [subscription (chan->subscription subscriber source' xform)]
+        (let [subscription (chan->subscription subscriber source')]
           (.onSubscribe subscriber subscription))))))
 
 (defn- stream->publisher
   "Create a publisher with manifold stream as source."
-  [source xform]
-  (reify
-    IPullStream
-    (pull [p]
-      (p/promise #(subscribe-once p %)))
+  [source]
+  (let [source' (async/chan)]
+    (ms/connect source source')
+    (reify
+      IPullStream
+      (pull [p]
+        (p/promise #(subscribe-once p %)))
 
-    Seqable
-    (seq [p]
-      (publisher->seq p))
+      Seqable
+      (seq [p]
+        (publisher->seq p))
 
-    Publisher
-    (^void subscribe [_ ^Subscriber subscriber]
-      (let [source' (async/chan)
-            subscription (chan->subscription subscriber source' xform true)]
-        (ms/connect source source')
-        (.onSubscribe subscriber subscription)))))
+      Publisher
+      (^void subscribe [_ ^Subscriber subscriber]
+        (let [subscription (chan->subscription subscriber source')]
+          (.onSubscribe subscriber subscription))))))
 
 (defn- empty->publisher
   "Creates an empty publisher that implements the
   push stream protocol."
-  [bufflen xform]
+  [bufflen]
   (let [source (async/chan bufflen)]
     (reify
       IPushStream
@@ -266,29 +259,34 @@
 
       Publisher
       (^void subscribe [_ ^Subscriber subscriber]
-        (let [subscription (chan->subscription subscriber source xform)]
+        (let [subscription (chan->subscription subscriber source)]
           (.onSubscribe subscriber subscription))))))
 
 (extend-protocol IPublisher
   nil
   (publisher* [source xform]
+    (assert (nil? xform) "not supported operation.")
     (empty->publisher source xform))
 
   java.lang.Long
   (publisher* [source xform]
-    (empty->publisher source xform))
+    (assert (nil? xform) "not supported operation.")
+    (empty->publisher source))
 
   java.lang.Iterable
   (publisher* [source xform]
-    (iterable->publisher source xform))
+    (assert (nil? xform) "not supported operation.")
+    (iterable->publisher source))
 
   manifold.stream.default.Stream
   (publisher* [source xform]
-    (stream->publisher source xform))
+    (assert (nil? xform) "not supported operation.")
+    (stream->publisher source))
 
   clojure.core.async.impl.channels.ManyToManyChannel
   (publisher* [source xform]
-    (channel->publisher source xform))
+    (assert (nil? xform) "not supported operation.")
+    (channel->publisher source))
 
   manifold.deferred.IDeferred
   (publisher* [source xform]
@@ -300,7 +298,8 @@
 
   futura.promise.Promise
   (publisher* [source xform]
-    (promise->publisher source xform))
+    (assert (nil? xform) "not supported operation.")
+    (promise->publisher source))
 
   Publisher
   (publisher* [source xform]
