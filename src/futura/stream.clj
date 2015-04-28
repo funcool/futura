@@ -1,14 +1,19 @@
 (ns futura.stream
-  (:require [clojure.core.async :refer [<! >! go go-loop] :as async]
+  (:require [clojure.core.async :as async]
+            [clojure.core.async.impl.protocols :as asyncp]
             [manifold.stream :as ms]
             [manifold.deferred :as md]
             [futura.atomic :as atomic]
             [futura.promise :as p])
   (:import java.util.concurrent.CompletableFuture
            clojure.lang.Seqable
+           java.lang.AutoCloseable
            org.reactivestreams.Publisher
            org.reactivestreams.Subscriber
            org.reactivestreams.Subscription))
+
+(declare publisher->seq)
+(declare subscribe)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Default Abstractions
@@ -38,9 +43,9 @@
    (let [completed (atomic/boolean false)
          requests (async/chan)
          pipeline (fn [n]
-                    (go-loop [n n]
+                    (async/go-loop [n n]
                       (when (and (pos? n) (not @completed))
-                        (if-let [value (<! source)]
+                        (if-let [value (async/<! source)]
                           (do
                             (.onNext subscriber value)
                             (recur (dec n)))
@@ -49,10 +54,10 @@
                             (async/close! requests)
                             (when close (async/close! source))
                             (atomic/compare-and-set! completed false true))))))]
-     (go-loop []
-       (when-let [n (<! requests)]
+     (async/go-loop []
+       (when-let [n (async/<! requests)]
          (when-not @completed
-           (<! (pipeline n))
+           (async/<! (pipeline n))
            (recur))))
      (reify Subscription
        (^void request [_ ^long n]
@@ -142,20 +147,15 @@
                          (atomic/compare-and-set! completed false true))))]
     (.subscribe p subscriber)))
 
-(declare take!)
-
-(defn- publisher->seq
-  "Coerce a publisher in a blocking seq."
-  [^Publisher p]
-  (lazy-seq
-   (let [v @(take! p)]
-     (when v
-       (cons v (lazy-seq (publisher->seq p)))))))
-
 (defn- promise->publisher
   "Create a publisher with promise as source."
   [source]
-  (reify Publisher
+  (reify
+    Seqable
+    (seq [p]
+      (seq (subscribe p)))
+
+    Publisher
     (^void subscribe [_ ^Subscriber subscriber]
       (let [subscription (promise->subscription subscriber source)]
         (.onSubscribe subscriber subscription)))))
@@ -166,11 +166,7 @@
   (reify
     Seqable
     (seq [p]
-      (publisher->seq p))
-
-    IPullStream
-    (pull [p]
-      (p/promise #(subscribe-once p %)))
+      (seq (subscribe p)))
 
     Publisher
     (^void subscribe [_ ^Subscriber subscriber]
@@ -183,11 +179,7 @@
   (reify
     Seqable
     (seq [p]
-      (publisher->seq p))
-
-    IPullStream
-    (pull [p]
-      (p/promise #(subscribe-once p %)))
+      (seq (subscribe p)))
 
     Publisher
     (^void subscribe [_ ^Subscriber subscriber]
@@ -200,13 +192,9 @@
   (let [source' (async/chan)]
     (async/onto-chan source' (seq source))
     (reify
-      IPullStream
-      (pull [p]
-        (p/promise #(subscribe-once p %)))
-
       Seqable
       (seq [p]
-        (publisher->seq p))
+        (seq (subscribe p)))
 
       Publisher
       (^void subscribe [_ ^Subscriber subscriber]
@@ -219,13 +207,9 @@
   (let [source' (async/chan)]
     (ms/connect source source')
     (reify
-      IPullStream
-      (pull [p]
-        (p/promise #(subscribe-once p %)))
-
       Seqable
       (seq [p]
-        (publisher->seq p))
+        (seq (subscribe p)))
 
       Publisher
       (^void subscribe [_ ^Subscriber subscriber]
@@ -251,11 +235,7 @@
 
       Seqable
       (seq [p]
-        (publisher->seq p))
-
-      IPullStream
-      (pull [p]
-        (p/promise #(subscribe-once p %)))
+        (seq (subscribe p)))
 
       Publisher
       (^void subscribe [_ ^Subscriber subscriber]
@@ -346,3 +326,51 @@
   if it succeeds, and false if it fails."
   [^IPushStream p v]
   (.push p v))
+
+(defn- publisher->seq
+  "Coerce a publisher in a blocking seq."
+  [s]
+  (lazy-seq
+   (let [v @(take! s)]
+     (if v
+       (cons v (lazy-seq (publisher->seq s)))
+       (.close ^AutoCloseable s)))))
+
+(defn subscribe
+  "Create a subscription to the given publisher instance.
+
+  The returned subscription does not consumes the publisher
+  data until is requested."
+  [^Publisher p]
+  (let [sr (async/chan)
+        ss (atomic/ref nil)
+        sb (reify Subscriber
+             (onSubscribe [_ s]
+               (atomic/set! ss s))
+             (onNext [_ v]
+               (async/put! sr v))
+             (onError [_ e]
+               (async/close! sr))
+             (onComplete [_]
+               (async/close! sr)))]
+    (.subscribe p sb)
+    (reify
+      AutoCloseable
+      (close [_]
+        (.cancel @ss))
+
+      Seqable
+      (seq [this]
+        (publisher->seq this))
+
+      IPullStream
+      (pull [_]
+        (let [p (p/promise)]
+          (async/take! sr #(p/deliver p %))
+          (.request @ss 1)
+          p))
+
+      asyncp/ReadPort
+      (take! [_ handler]
+        (asyncp/take! sr handler)))))
+

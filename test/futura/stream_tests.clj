@@ -10,138 +10,63 @@
            org.reactivestreams.Subscriber
            org.reactivestreams.Subscription))
 
-(deftest vector-as-publisher
-  (let [state (atom [])
-        subscription (atom nil)
-        nexts (chan)
-        completes (chan)
-        errors (chan)
-        subscriber (reify Subscriber
-                     (^void onSubscribe [_ ^Subscription s]
-                       (reset! subscription s))
-                     (^void onNext [_ v]
-                       (put! nexts v))
-                     (^void onComplete [_]
-                       (put! completes true)
-                       (close! nexts)
-                       (close! completes)
-                       (close! errors))
-                     (^void onError [_ ^Throwable e]
-                       (put! errors e)
-                       (close! nexts)
-                       (close! completes)
-                       (close! errors)))
-
-        publisher (stream/publisher [100 200 300 400])]
-
-    (.subscribe publisher subscriber)
-    (.request @subscription 100)
-    (is (= 100 (<!! nexts)))
-    (is (= 200 (<!! nexts)))
-    (is (= 300 (<!! nexts)))
-    (is (= 400 (<!! nexts)))
-    (is (<!! completes)))
-)
-
-(deftest chan-as-publisher
-  (let [state (atom [])
-        subscription (atom nil)
-        nexts (chan)
-        completes (chan)
-        errors (chan)
-        source (chan 10)
-        subscriber (reify Subscriber
-                     (^void onSubscribe [_ ^Subscription s]
-                       (reset! subscription s))
-                     (^void onNext [_ v]
-                       (put! nexts v))
-                     (^void onComplete [_]
-                       (put! completes true)
-                       (close! nexts)
-                       (close! completes)
-                       (close! errors))
-                     (^void onError [_ ^Throwable e]
-                       (put! errors e)
-                       (close! nexts)
-                       (close! completes)
-                       (close! errors)))
-
-        publisher (stream/publisher source)]
-    (put! source 100)
-    (put! source 200)
-    (close! source)
-
-    (is (instance? Publisher publisher))
-    (is (instance? Subscriber subscriber))
-    (is (nil? @subscription))
-
-    (.subscribe publisher subscriber)
-    (is (instance? Subscription @subscription))
-
-    (.request @subscription 100)
-    (is (= 100 (<!! nexts)))
-    (is (= 200 (<!! nexts)))
-    (is (<!! completes))
-
-    (.request @subscription 1)
-    (is (nil? (<!! nexts))))
-)
-
-(deftest publisher-from-promise
-  (let [p (stream/publisher (p/promise 1))
-        c (stream/publisher->chan p)]
-    (is (= [1] (<!! (async/into [] c))))))
-
 (deftest publisher-composition
-  (let [p (->> (stream/publisher [1 2 3 4 5 6])
-               (stream/publisher (map inc)))
-        c (stream/publisher->chan p)]
-    (is (= [2 3 4 5 6 7] (<!! (async/into [] c)))))
+  (testing "Using simple map transducer."
+    (let [p (->> (stream/publisher [1 2 3 4 5 6])
+                 (stream/publisher (map inc)))]
+      (is (= [2 3 4 5 6 7] (into [] p)))))
 
-  (let [p (->> (stream/publisher [1 2 3 4])
-               (stream/publisher (take 2))
-               (stream/publisher (map inc)))
+  (testing "Using take + map transducer"
+    (let [p (->> (stream/publisher [1 2 3 4])
+                 (stream/publisher (take 2))
+                 (stream/publisher (map inc)))]
+      (is (= [2 3] (into [] p)))))
 
-        c (stream/publisher->chan p)]
-    (is (= [2 3] (<!! (async/into [] c)))))
-
-  (let [p (->> (stream/publisher [1 2 3 4 5 6])
-               (stream/publisher (take 5))
-               (stream/publisher (map inc))
-               (stream/publisher (partition-all 2)))
-        c (stream/publisher->chan p)]
-    (is (= [[2 3] [4 5] [6]] (<!! (async/into [] c)))))
+  (testing "Using take + map + partition-all transducer"
+    (let [p (->> (stream/publisher [1 2 3 4 5 6])
+                 (stream/publisher (take 5))
+                 (stream/publisher (map inc))
+                 (stream/publisher (partition-all 2)))]
+    (is (= [[2 3] [4 5] [6]] (into [] p)))))
 )
 
-(deftest publisher-seqable
-  (let [p (stream/publisher [1 2 3 4])
-        v (into [] p)]
-    (is (= v [1 2 3 4])))
+(deftest publisher-constructors
+  (testing "Publisher sourced with promise"
+    (let [p (stream/publisher (p/promise 1))]
+      (is (= [1] (into [] p)))))
 
-  (let [source (async/chan)
-        p (stream/publisher source)]
-    (async/go-loop [n 10]
-      (if (pos? n)
-        (do
-          (async/>! source (inc n))
-          (recur (dec n)))
-        (async/close! source)))
-    (let [v (into [] p)]
-      (is (= [11 10 9 8 7 6 5 4 3 2] v))))
+  (testing "Publisher sourced with vector"
+    (let [p (stream/publisher [1 2 3])]
+      (is (= [1 2 3] (into [] p)))))
+
+  (testing "Publisher sourced with core.async channel"
+    (let [source (async/chan)
+          p (stream/publisher source)]
+      (async/go-loop [n 10]
+        (if (pos? n)
+          (do
+            (async/>! source (inc n))
+            (recur (dec n)))
+          (async/close! source)))
+      (let [v (into [] p)]
+        (is (= [11 10 9 8 7 6 5 4 3 2] v)))))
 )
 
 (deftest push-stream
   (let [p (stream/publisher 2)]
     (stream/put! p 1)
     (stream/put! p 2)
-    (is (= @(stream/take! p) 1))
-    (is (= @(stream/take! p) 2))))
+    (with-open [s (stream/subscribe p)]
+      (is (= @(stream/take! s) 1))
+      (is (= @(stream/take! s) 2)))))
 
-(deftest push-stream-manifold
+(deftest manifold-stream
   (let [mst (ms/stream)
         p (stream/publisher mst)]
     (ms/put! mst 1)
     (ms/put! mst 2)
-    (is (= @(stream/take! p) 1))
-    (is (= @(stream/take! p) 2)))
+
+    (with-open [s (stream/subscribe p)]
+      (is (= @(stream/take! s) 1))
+      (is (= @(stream/take! s) 2))))
 )
