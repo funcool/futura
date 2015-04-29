@@ -122,31 +122,6 @@
           (rf subscriber)
           (.onComplete subscriber))))))
 
-(defn- subscribe-once
-  "Create a subscription instance that only
-  subscribes for one value."
-  [^Publisher p callback]
-  (let [subscription (atomic/ref nil)
-        completed (atomic/boolean false)
-        subscriber (reify Subscriber
-                     (onSubscribe [_ s]
-                       (atomic/set! subscription s)
-                       (.request s 1))
-                     (onNext [_ v]
-                       (when-not @completed
-                         (callback v)
-                         (.cancel @subscription)
-                         (atomic/compare-and-set! completed false true)))
-                     (onError [_ e]
-                       (when-not @completed
-                         (callback nil)
-                         (atomic/compare-and-set! completed false true)))
-                     (onComplete [_]
-                       (when-not @completed
-                         (callback nil)
-                         (atomic/compare-and-set! completed false true))))]
-    (.subscribe p subscriber)))
-
 (defn- promise->publisher
   "Create a publisher with promise as source."
   [source]
@@ -373,4 +348,3 @@
       asyncp/ReadPort
       (take! [_ handler]
         (asyncp/take! sr handler)))))
-
