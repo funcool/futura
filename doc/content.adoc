@@ -171,7 +171,7 @@ previous examples we have seen `then` function, let see an other more complex ex
 
 === Collections of promises
 
-In some circumstances you will want wait a completion of few promises at same time, and _futura_ 
+In some circumstances you will want wait a completion of few promises at same time, and _futura_
 also provides helpers for that:
 
 [source, clojure]
@@ -188,11 +188,137 @@ also provides helpers for that:
 
 The streams in _futura_ library are governed by the
 link:http://www.reactive-streams.org/[reactive streams] iniciative and its default interfaces
-for the jvm languages but with support for the powerful clojure's features as transducers and sequence
-abstractions.
+for the jvm languages. Additionally, it comes with support for the the powerful clojure's features as
+transducers and sequence abstractions and with great interoprability with existing clojure libraries.
 
-TBD
+In summary, is a reactive-streams implementation on top of clojure abstractions and works as
+intermediary between clojure and the java world.
 
+The reactive streams has four participants, but in the clojure part we only need two:
+
+* *Publisher* Is a stream source. +
+  Thanks to this library you can create a publisher from different kind of stream implementations, such
+  as _core.async_, _manifold_, _lazyseq_, iterable, and much others explaned in below.
+* *Subscription* Is a consumer of the source. +
+  This abstraction no has direct translation to the reactive-streams abstraction because the
+  reactive-streams abstraction is oriented for Object Oriented programing languages like java. The
+  subscription in this library is a opaque object that allows you retrieve data from the publisher. +
+  Addionally to the ad-hoc functions for work with subscriptions, it implements the appropiate
+  protocols for play well with _core.async_, allowing using it in go blocks.
+
+
+=== First contact
+
+The _futura_'s streams api is really very simple. It consists in ver few functions.
+
+Let's go to create our first publisher empty publisher:
+
+[source, clojure]
+----
+(require '[futura.stream :as stream])
+
+(def s (stream/publisher))
+----
+
+The `stream` function without additional parameters creates a empty, and unbuffered publisher. Now 
+you can put the items to the using the `put!` function:
+
+[source, clojure]
+----
+(def prm (stream/put! s 1))
+----
+
+The return value of the `put!` function is a promise that will be resolved to true when the value is
+accepted by the publisher. And in case of the unbuffered publisher it will happens when one subscription
+will request a value.
+
+And finally, for obtain values from the publisher, you should create a subscription:
+
+[source, clojure]
+----
+(with-open [sub (s/subscribe s)]
+  (s/take! s))
+----
+
+The return value of `take!` function is also a promise and will be resolved with a value when the first
+one will be available.
+
+You should known that everything in this implementation is lazy. Creatin susbscrion does not
+automatically request all items from publisher. A subscription will only request a item to the publisher
+when you are request it.
+
+Behind the scenes, publisher and subscription are implemented using _core.async_, so the nil values
+are does not allowed and represent that the publisher or the subscription is closed. The subscription
+as you can observe implements the `.close()` method that allows use it with `with-open` macro, but take
+care, the publisher can end early and subscrion will be closed also before with-open calls the
+`.close()` method.
+
+
+=== Source the publisher
+
+As we said previously, the real purpose of this abstraction is using it as connection with java world,
+surelly if you are clojure only user you may want use _core.async_ or _manifold_ directly without
+additional layer.
+
+In fact, _futura_ is actually used by _catacumba_ for comunicating asyncronous streams with
+ratpack/netty. This abstraction is choiced because it has support for backpressure that is very
+important in asynchronous network applications.
+
+But for use it as a intermediary layer with third party libraries you should will be able create
+publisher from the existing abstractions in clojure. Now, let se how you can do it:
+
+.Example creating a publisher instance from any object that implements `Iterable`:
+[source, clojure]
+----
+(def pub (p/publisher (take 1 (iterate inc 1))))
+
+(into [] pub)
+;; => [1 2 3 4 5]
+----
+
+As you can observe the previous example, you can see that the publisher can be easily converted
+to sequence. That happens because publisher implements the clojure's `Seqable` interface that behind
+the scenes uses a subscription and blocking access to all items until the subscription is closed.
+
+So, you can create a publisher from this kind of abstractions: *promise*, jdk8 *completable future*, 
+manifold *deferred*, manifold *stream*, *sequences* and *iterables*.
+
+
+=== Composable trasnformations
+
+Additionally to the previously mentioned abstractions, you can create a publisher from another
+publisher. This kind of composition allows you attach a transducer for apply some kind of
+transformations.
+
+Take care de some implementation detail: the transducer is applied for subscriptions, not for the
+publisher. So, if you use some kind of `(take N)` transducer with possible infinite publisher, it will
+cause that each subscription will be closed after `N` items but the publisher will remain active
+accepting new subscriptions.
+
+[source, clojure]
+----
+(def pub (->> (p/publisher (take 1 (iterate inc 1)))
+              (p/publisher (map inc))))
+
+(into [] pub)
+;; => [2 3 4 5 6]
+----
+
+=== Subscription as channel
+
+One interesting thin, is that open subscriptions can be used as channels so them are fully compatible
+for usage in _core.async_ go block like any other channel:
+
+[source, clojure]
+----
+(require '[clojure.core.async :refer [<! go-loop]])
+
+(with-open [sub (s/subscribe s)]
+  (go-loop []
+    (when-let [value (<! sub)]
+      (do-something value)
+      (recur))))
+----
 
 == Atomics
 
