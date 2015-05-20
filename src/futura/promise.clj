@@ -1,4 +1,4 @@
-;; Copyright (c) 2015 Andrey Antukh <niwi@niwi.be>
+;; Copyright (c) 2015 Andrey Antukh <niwi@niwi.nz>
 ;; All rights reserved.
 ;;
 ;; Redistribution and use in source and binary forms, with or without
@@ -238,7 +238,8 @@
 
 (defn done?
   "Returns true if promise `p` is
-  completed successfully."
+  done independently if successfully
+  o exceptionally."
   [p]
   (done* p))
 
@@ -250,13 +251,13 @@
 
 (defn resolved?
   "Returns true if promise `p` is
-  already successfuly resolved."
+  completed successfully."
   [p]
   (resolved* p))
 
 (defn pending?
   "Returns true if promise `p` is
-  stil pending."
+  stil in pending state."
   [p]
   (pending* p))
 
@@ -298,7 +299,6 @@
                       (Promise.))]
     (then promise' (fn [_]
                      (mapv deref promises)))))
-
 
 (defn any
   "Given an array of promises, return a promise
