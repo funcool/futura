@@ -52,7 +52,7 @@
         subscriber (:subscriber sub)]
     (atomic/set! canceled true)
     (try
-      (.onError subscriber e)
+      (.onError ^Subscriber subscriber e)
       (catch Throwable t
         (IllegalStateException. "Violated the Reactive Streams rule 2.13")))))
 
@@ -65,20 +65,20 @@
         queue (:queue sub)]
     (when (atomic/compare-and-set! active false true)
       (try
-        (.execute *executor* (runnable sub))
+        (.execute ^Executor *executor* (runnable sub))
         (catch Throwable t
           (when (not @canceled)
             (atomic/set! canceled true)
             (try
               (terminate sub (IllegalStateException. "Unavailable executor."))
               (finally
-                (.clear queue)
+                (.clear ^Queue queue)
                 (atomic/set! active false)))))))))
 
 (defn- signal
   "Notify the subscription about specific event."
   [sub m]
-  (let [queue (:queue sub)]
+  (let [^Queue queue (:queue sub)]
     (when (.offer queue m)
       (schedule sub))))
 
@@ -146,7 +146,7 @@
     (reify Runnable
       (^void run [_]
         (try
-          (let [signal (.poll queue)]
+          (let [signal (.poll ^Queue queue)]
             (when (not @canceled)
               (case (:type signal)
                 ::request (handle-request sub (:number signal))
@@ -155,7 +155,7 @@
                 ::subscribe (handle-subscribe sub))))
           (finally
             (atomic/set! active false)
-            (when (not (.isEmpty queue))
+            (when (not (.isEmpty ^Queue queue))
               (schedule sub))))))))
 
 (definterface IPullStream

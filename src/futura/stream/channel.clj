@@ -43,17 +43,17 @@
 (defmethod common/handle-subscribe Subscription
   [sub]
   (let [canceled (:canceled sub)
-        subscriber (:subscriber sub)
-        source (:source sub)]
+        source (:source sub)
+        subscriber (:subscriber sub)]
     (when (not @canceled)
       (try
-        (.onSubscribe subscriber sub)
+        (.onSubscribe ^Subscriber subscriber sub)
         (catch Throwable t
           (common/terminate sub (IllegalStateException. "Violated the Reactive Streams rule 2.13"))))
       (when (asyncp/closed? source)
         (try
           (atomic/set! canceled true)
-          (.onComplete subscriber)
+          (.onComplete ^Subscriber subscriber)
           (catch Throwable t
             ;; (IllegalStateException. "Violated the Reactive Streams rule 2.13")
             ))))))
@@ -61,16 +61,16 @@
 (defmethod common/handle-send Subscription
   [sub]
   (let [source (:source sub)
-        subscriber (:subscriber sub)
-        canceled (:canceled sub)]
+        canceled (:canceled sub)
+        subscriber (:subscriber sub)]
     (async/take! source (fn [value]
                           (try
                             (if (nil? value)
                               (do
                                 (atomic/set! canceled true)
-                                (.onComplete subscriber))
+                                (.onComplete ^Subscriber subscriber))
                               (let [demand (atomic/dec-and-get! (:demand sub))]
-                                (.onNext subscriber value)
+                                (.onNext ^Subscriber subscriber value)
                                 (when (and (not @canceled) (pos? demand))
                                   (common/signal-send sub))))
                             (catch Throwable t
