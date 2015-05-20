@@ -38,7 +38,9 @@
   "A common abstraction for number atomic types."
   (get-and-add! [_ v] "Adds a delta and return the previous value.")
   (get-and-dec! [_] "Decrements the value and return the previous one.")
-  (get-and-inc! [_] "Increments the value and returns the previous one."))
+  (get-and-inc! [_] "Increments the value and returns the previous one.")
+  (dec-and-get! [_] "Decrements the value and return it.")
+  (inc-and-get! [_] "Increments the value and return it."))
 
 (deftype AtomicLong [^java.util.concurrent.atomic.AtomicLong av]
   IAtomicNumber
@@ -48,6 +50,11 @@
     (.getAndDecrement av))
   (get-and-inc! [_]
     (.getAndIncrement av))
+
+  (dec-and-get! [_]
+    (.decrementAndGet av))
+  (inc-and-get! [_]
+    (.incrementAndGet av))
 
   IAtomic
   (compare-and-set! [_ expected update]
