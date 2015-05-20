@@ -33,15 +33,16 @@
            org.reactivestreams.Publisher
            org.reactivestreams.Subscriber
            java.lang.AutoCloseable
+           java.util.Queue
+           java.util.concurrent.ForkJoinPool
            java.util.concurrent.Executor
-           java.util.concurrent.Executors
            java.util.concurrent.CountDownLatch
            java.util.concurrent.ConcurrentLinkedQueue))
 
 (declare runnable)
 
 (def ^:dynamic
-  *executor* (Executors/newSingleThreadExecutor))
+  *executor* (ForkJoinPool/commonPool))
 
 (defn terminate
   "Mark a subscrition as terminated
