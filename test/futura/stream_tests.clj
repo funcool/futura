@@ -52,21 +52,20 @@
         (is (= [11 10 9 8 7 6 5 4 3 2] v)))))
 )
 
-(deftest push-stream
-  (let [p (stream/publisher 2)]
-    (stream/put! p 1)
-    (stream/put! p 2)
-    (with-open [s (stream/subscribe p)]
-      (is (= @(stream/take! s) 1))
-      (is (= @(stream/take! s) 2)))))
+;; (deftest push-stream
+;;   (let [p (stream/publisher 2)]
+;;     (stream/put! p 1)
+;;     (stream/put! p 2)
+;;     (with-open [s (stream/subscribe p)]
+;;       (is (= @(stream/take! s) 1))
+;;       (is (= @(stream/take! s) 2)))))
 
 (deftest manifold-stream
   (let [mst (ms/stream)
         p (stream/publisher mst)]
-    (ms/put! mst 1)
-    (ms/put! mst 2)
-
-    (with-open [s (stream/subscribe p)]
-      (is (= @(stream/take! s) 1))
-      (is (= @(stream/take! s) 2))))
-)
+    (async/go
+      (ms/put! mst 1)
+      (ms/put! mst 2)
+      (ms/close! mst))
+    (let [v (into [] p)]
+      (is (= [1 2] v)))))
