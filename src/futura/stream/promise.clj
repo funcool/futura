@@ -25,63 +25,41 @@
 (ns futura.stream.promise
   (:require [futura.atomic :as atomic]
             [futura.promise :as p]
-            [futura.stream.common :as common]
-            [clojure.core.async :as async]
-            [clojure.core.async.impl.protocols :as asyncp])
-  (:import clojure.lang.Seqable
-           org.reactivestreams.Publisher
-           org.reactivestreams.Subscriber
-           java.util.concurrent.ConcurrentLinkedQueue))
+            [futura.stream.common :as common])
+  (:import org.reactivestreams.Subscriber
+           futura.stream.common.Subscription
+           futura.stream.common.Publisher
+           java.util.Set))
 
-(defrecord Subscription [canceled active demand queue source subscriber]
-  org.reactivestreams.Subscription
-  (^void cancel [this]
-    (common/signal-cancel this))
-
-  (^void request [this ^long n]
-    (common/signal-request this n)))
-
-(defmethod common/handle-subscribe Subscription
-  [sub]
-  (let [canceled (:canceled sub)
-        subscriber (:subscriber sub)
-        source (:source sub)]
+(defmethod common/handle-subscribe ::promise
+  [^Subscription sub]
+  (let [^Subscriber subscriber (.-subscriber sub)
+        ^Publisher publisher (.-publisher sub)
+        canceled (.-canceled sub)]
     (when (not @canceled)
       (try
         (.onSubscribe subscriber sub)
         (catch Throwable t
           (common/terminate sub (IllegalStateException. "Violated the Reactive Streams rule 2.13")))))))
 
-(defmethod common/handle-send Subscription
-  [sub]
-  (let [source (:source sub)
-        subscriber (:subscriber sub)
-        canceled (:canceled sub)]
+(defmethod common/handle-send ::promise
+  [^Subscription sub]
+  (let [^Subscriber subscriber (.-subscriber sub)
+        ^Publisher publisher (.-publisher sub)
+        canceled (.-canceled sub)
+        source (.-source publisher)]
     (p/then source (fn [v]
                      (.onNext subscriber v)
-                     (atomic/set! canceled true)
+                     (common/handle-cancel sub)
                      (.onComplete subscriber)))
     (p/catch source (fn [e]
-                      (atomic/set! canceled true)
+                      (common/handle-cancel sub)
                       (.onError e)))))
 
 (defn publisher
   "A publisher constructor with promise
   channel as its source. The returned publisher
   instance is of multicast type."
-  [source]
-  (reify
-    Seqable
-    (seq [p]
-      (seq (common/subscribe p)))
-
-    Publisher
-    (^void subscribe [_ ^Subscriber subscriber]
-      (let [sub (Subscription. (atomic/boolean false)
-                               (atomic/boolean false)
-                               (atomic/long 0)
-                               (ConcurrentLinkedQueue.)
-                               source
-                               subscriber)]
-        (common/signal-subscribe sub)
-        sub))))
+  ([source] (publisher source {}))
+  ([source options]
+   (common/publisher ::promise source options)))

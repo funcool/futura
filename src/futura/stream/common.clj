@@ -30,42 +30,108 @@
             [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as asyncp])
   (:import clojure.lang.Seqable
-           org.reactivestreams.Publisher
            org.reactivestreams.Subscriber
            java.lang.AutoCloseable
+           java.util.Set
+           java.util.HashSet
            java.util.Queue
+           java.util.Collections
            java.util.concurrent.ForkJoinPool
            java.util.concurrent.Executor
+           java.util.concurrent.Executors
            java.util.concurrent.CountDownLatch
            java.util.concurrent.ConcurrentLinkedQueue))
 
-(declare runnable)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Global
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def ^:dynamic
-  *executor* (ForkJoinPool/commonPool))
+(def ^:dynamic *executor* (ForkJoinPool/commonPool))
+;; (def ^:dynamic *executor* (Executors/newSingleThreadExecutor))
+
+(declare signal-cancel)
+(declare signal-request)
+(declare signal-subscribe)
+(declare subscribe)
+(declare schedule)
+(declare handle-subscribe)
+(declare handle-request)
+(declare handle-send)
+(declare handle-cancel)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Types
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(deftype Subscription [type canceled active demand queue publisher subscriber]
+  org.reactivestreams.Subscription
+  (^void cancel [this]
+    (signal-cancel this))
+
+  (^void request [this ^long n]
+    (signal-request this n))
+
+  Runnable
+  (^void run [this]
+    (try
+      (let [signal (.poll ^Queue queue)]
+        (when (not @canceled)
+          (case (:type signal)
+            ::request (handle-request this (:number signal))
+            ::send (handle-send this)
+            ::cancel (handle-cancel this)
+            ::subscribe (handle-subscribe this))))
+      (finally
+        (atomic/set! active false)
+        (when-not (.isEmpty ^Queue queue)
+          (schedule this))))))
+
+(deftype Publisher [type source subscriptions options]
+  clojure.lang.Seqable
+  (seq [p]
+    (seq (subscribe p)))
+
+  org.reactivestreams.Publisher
+  (^void subscribe [this ^Subscriber subscriber]
+    (let [sub (Subscription.
+               type
+               (atomic/boolean false)
+               (atomic/boolean false)
+               (atomic/long 0)
+               (ConcurrentLinkedQueue.)
+               this
+               subscriber)]
+      (.add ^Set subscriptions sub)
+      (signal-subscribe sub)
+      sub)))
+
+(defn publisher
+  "A generic publisher constructor."
+  [type source options]
+  (let [subscriptions (Collections/synchronizedSet (HashSet.))]
+    (Publisher. type source subscriptions options)))
 
 (defn terminate
   "Mark a subscrition as terminated
   with provided exception."
-  [sub e]
-  (let [canceled (:canceled sub)
-        subscriber (:subscriber sub)]
-    (atomic/set! canceled true)
+  [^Subscription sub e]
+  (let [^Subscriber subscriber (.-subscriber sub)]
+    (handle-cancel sub)
     (try
-      (.onError ^Subscriber subscriber e)
+      (.onError subscriber e)
       (catch Throwable t
         (IllegalStateException. "Violated the Reactive Streams rule 2.13")))))
 
 (defn schedule
   "Schedule the subscrption to be executed
   in builtin scheduler executor."
-  [sub]
-  (let [active (:active sub)
-        canceled (:canceled sub)
-        queue (:queue sub)]
+  [^Subscription sub]
+  (let [active (.-active sub)
+        canceled (.-canceled sub)
+        queue (.-queue sub)]
     (when (atomic/compare-and-set! active false true)
       (try
-        (.execute ^Executor *executor* (runnable sub))
+        (.execute ^Executor *executor* ^Runnable sub)
         (catch Throwable t
           (when (not @canceled)
             (atomic/set! canceled true)
@@ -78,7 +144,7 @@
 (defn- signal
   "Notify the subscription about specific event."
   [sub m]
-  (let [^Queue queue (:queue sub)]
+  (let [^Queue queue (.-queue sub)]
     (when (.offer queue m)
       (schedule sub))))
 
@@ -104,17 +170,33 @@
 
 (defmulti handle-send
   "A polymorphic method for handle send signal."
-  class)
+  (fn [^Subscription sub]
+    (.-type sub)))
 
 (defmulti handle-subscribe
   "A polymorphic method for handle send signal."
-  class)
+  (fn [^Subscription sub]
+    (.-type sub)))
 
-(defn handle-request
+(defmulti handle-cancel
+  "A polymorphic method for handle cancel signal."
+  (fn [^Subscription sub]
+    (.-type sub)))
+
+(defmethod handle-cancel :default
+  [^Subscription sub]
+  (let [^Publisher publisher (.-publisher sub)
+        ^Set subscriptions (.-subscriptions publisher)
+        canceled (.-canceled sub)]
+    (when (not @canceled)
+      (atomic/set! canceled true)
+      (.remove subscriptions sub))))
+
+(defn- handle-request
   "A generic implementation for request events
   handling for any type of subscriptions."
-  [sub n]
-  (let [demand (:demand sub)]
+  [^Subscription sub n]
+  (let [demand (.-demand sub)]
     (cond
       (< n 1)
       (terminate sub (IllegalStateException. "violated the Reactive Streams rule 3.9"))
@@ -128,35 +210,6 @@
       (do
         (atomic/get-and-add! demand n)
         (handle-send sub)))))
-
-(defn handle-cancel
-  "A generic implementation for handle cancel events
-  for all types of subscriptions."
-  [sub]
-  (let [canceled (:canceled sub)]
-    (atomic/set! canceled true)))
-
-(defn runnable
-  "A runnable constructor for schedule the subscription
-  to handle events in a executor/event-loop."
-  [sub]
-  (let [queue (:queue sub)
-        active (:active sub)
-        canceled (:canceled sub)]
-    (reify Runnable
-      (^void run [_]
-        (try
-          (let [signal (.poll ^Queue queue)]
-            (when (not @canceled)
-              (case (:type signal)
-                ::request (handle-request sub (:number signal))
-                ::send (handle-send sub)
-                ::cancel (handle-cancel sub)
-                ::subscribe (handle-subscribe sub))))
-          (finally
-            (atomic/set! active false)
-            (when (not (.isEmpty ^Queue queue))
-              (schedule sub))))))))
 
 (definterface IPullStream
   (pull [] "Pull a value from the stream."))
@@ -181,7 +234,7 @@
 
   The returned subscription does not consumes the publisher
   data until is requested."
-  [^Publisher p]
+  [p]
   (let [sr (async/chan)
         lc (CountDownLatch. 1)
         ss (atomic/ref nil)
