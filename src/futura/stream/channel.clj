@@ -38,7 +38,6 @@
 
 (defmethod common/handle-cancel ::channel
   [^Subscription sub]
-  (println "handle-cancel")
   (let [^Publisher publisher (.-publisher sub)
         ^Set subscriptions (.-subscriptions publisher)
         canceled (.-canceled sub)
@@ -47,14 +46,11 @@
     (when (not @canceled)
       (atomic/set! canceled true)
       (.remove subscriptions sub)
-
-      (println "handle-cancel$1" subscriptions)
       (when (:close options)
         (async/close! source)))))
 
 (defmethod common/handle-subscribe ::channel
   [^Subscription sub]
-  (println "handle-subscribe")
   (let [^Publisher publisher (.-publisher sub)
         ^Subscriber subscriber (.-subscriber sub)
         source (.-source publisher)
@@ -78,22 +74,17 @@
         ^Subscriber subscriber (.-subscriber sub)
         source (.-source publisher)
         canceled (.-canceled sub)]
-    (println "handle-send")
     (async/take! source (fn [value]
-                          (println "handle-send$1" value)
                           (try
                             (if (nil? value)
                               (do
-                                (println "handle-send$2")
                                 (common/handle-cancel sub)
                                 (.onComplete subscriber))
                               (let [demand (atomic/dec-and-get! (.-demand sub))]
-                                (println "handle-send$3" demand)
                                 (.onNext subscriber value)
                                 (when (and (not @canceled) (pos? demand))
                                   (common/signal-send sub))))
                             (catch Throwable t
-                              (println "handle-send$4" t)
                               (common/handle-cancel sub)))))))
 
 (defn publisher
