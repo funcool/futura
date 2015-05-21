@@ -13,20 +13,20 @@
 (deftest publisher-composition
   (testing "Using simple map transducer."
     (let [p (->> (stream/publisher [1 2 3 4 5 6])
-                 (stream/publisher (map inc)))]
+                 (stream/transform (map inc)))]
       (is (= [2 3 4 5 6 7] (into [] p)))))
 
   (testing "Using take + map transducer"
     (let [p (->> (stream/publisher [1 2 3 4])
-                 (stream/publisher (take 2))
-                 (stream/publisher (map inc)))]
+                 (stream/transform (take 2))
+                 (stream/transform (map inc)))]
       (is (= [2 3] (into [] p)))))
 
   (testing "Using take + map + partition-all transducer"
     (let [p (->> (stream/publisher [1 2 3 4 5 6])
-                 (stream/publisher (take 5))
-                 (stream/publisher (map inc))
-                 (stream/publisher (partition-all 2)))]
+                 (stream/transform (take 5))
+                 (stream/transform (map inc))
+                 (stream/transform (partition-all 2)))]
     (is (= [[2 3] [4 5] [6]] (into [] p)))))
 )
 
@@ -52,13 +52,13 @@
         (is (= [11 10 9 8 7 6 5 4 3 2] v)))))
 )
 
-;; (deftest push-stream
-;;   (let [p (stream/publisher 2)]
-;;     (stream/put! p 1)
-;;     (stream/put! p 2)
-;;     (with-open [s (stream/subscribe p)]
-;;       (is (= @(stream/take! s) 1))
-;;       (is (= @(stream/take! s) 2)))))
+(deftest push-stream
+  (let [p (stream/publisher 2)]
+    (stream/put! p 1)
+    (stream/put! p 2)
+    (with-open [s (stream/subscribe p)]
+      (is (= @(stream/take! s) 1))
+      (is (= @(stream/take! s) 2)))))
 
 (deftest manifold-stream
   (let [mst (ms/stream)
