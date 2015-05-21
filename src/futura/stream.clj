@@ -35,6 +35,7 @@
   (:import java.util.concurrent.CompletableFuture
            clojure.lang.Seqable
            java.lang.AutoCloseable
+           futura.stream.common.IPullStream
            org.reactivestreams.Publisher
            org.reactivestreams.Subscriber
            org.reactivestreams.Subscription))
@@ -154,3 +155,10 @@
 ;;   if it succeeds, and false if it fails."
 ;;   [^IPushStream p v]
 ;;   (.push p v))
+
+(defn take!
+  "Takes a value from a stream, returning a deferred that yields the value
+  when it is available or nil if the take fails."
+  [^IPullStream p]
+  (.pull p))
+

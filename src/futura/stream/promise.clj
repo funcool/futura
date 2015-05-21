@@ -27,22 +27,46 @@
             [futura.promise :as p]
             [futura.stream.common :as common])
   (:import org.reactivestreams.Subscriber
-           futura.stream.common.Subscription
-           futura.stream.common.Publisher
+           futura.stream.common.IPullStream
            java.util.Set))
 
-(defmethod common/handle-subscribe ::promise
-  [^Subscription sub]
-  (let [^Subscriber subscriber (.-subscriber sub)
-        ^Publisher publisher (.-publisher sub)
-        canceled (.-canceled sub)]
-    (when (not @canceled)
-      (try
-        (.onSubscribe subscriber sub)
-        (catch Throwable t
-          (common/terminate sub (IllegalStateException. "Violated the Reactive Streams rule 2.13")))))))
+(declare handle-subscribe)
+(declare handle-request)
+(declare handle-cancel)
 
-(defmethod common/handle-send ::promise
+(deftype Subscription [canceled publisher subscriber]
+  org.reactivestreams.Subscription
+  (^void cancel [this]
+    (atomic/set! canceled true))
+
+  (^void request [this ^long n]
+    (handle-request this)))
+
+(deftype Publisher [source]
+  clojure.lang.Seqable
+  (seq [p]
+    (seq (common/subscribe p)))
+
+  org.reactivestreams.Publisher
+  (^void subscribe [this ^Subscriber subscriber]
+    (let [canceled (atomic/boolean false)
+          sub (Subscription. canceled this subscriber)]
+      (try
+        (.onSubscribe subscriber ^Subscription sub)
+        (catch Throwable t
+          (handle-cancel sub)
+          (try
+            (.onError subscriber (IllegalStateException. "Violated the Reactive Streams rule 2.13"))
+            (catch Throwable t
+              (IllegalStateException. "Violated the Reactive Streams rule 2.13"))))))))
+
+(defn- handle-cancel
+  [^Subscription sub]
+  (let [canceled (.-canceled sub)]
+    (when (not @canceled)
+      (atomic/set! canceled true))))
+
+(defn- handle-request
   [^Subscription sub]
   (let [^Subscriber subscriber (.-subscriber sub)
         ^Publisher publisher (.-publisher sub)
@@ -50,10 +74,10 @@
         source (.-source publisher)]
     (p/then source (fn [v]
                      (.onNext subscriber v)
-                     (common/handle-cancel sub)
+                     (handle-cancel sub)
                      (.onComplete subscriber)))
     (p/catch source (fn [e]
-                      (common/handle-cancel sub)
+                      (handle-cancel sub)
                       (.onError e)))))
 
 (defn publisher
@@ -62,4 +86,4 @@
   instance is of multicast type."
   ([source] (publisher source {}))
   ([source options]
-   (common/publisher ::promise source options)))
+   (Publisher. source)))

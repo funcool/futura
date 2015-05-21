@@ -27,16 +27,156 @@
             [futura.stream.common :as common]
             [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as asyncp])
-  (:import org.reactivestreams.Subscriber
-           futura.stream.common.Subscription
-           futura.stream.common.Publisher
-           java.util.Set))
+  (:import clojure.lang.Seqable
+           org.reactivestreams.Subscriber
+           futura.stream.common.IPullStream
+           java.lang.AutoCloseable
+           java.util.Set
+           java.util.HashSet
+           java.util.Queue
+           java.util.Collections
+           java.util.concurrent.ForkJoinPool
+           java.util.concurrent.Executor
+           java.util.concurrent.Executors
+           java.util.concurrent.CountDownLatch
+           java.util.concurrent.ConcurrentLinkedQueue))
+
+(declare signal-cancel)
+(declare signal-request)
+(declare signal-subscribe)
+(declare subscribe)
+(declare schedule)
+(declare handle-subscribe)
+(declare handle-request)
+(declare handle-send)
+(declare handle-cancel)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Types
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(deftype Subscription [canceled active demand queue publisher subscriber]
+  org.reactivestreams.Subscription
+  (^void cancel [this]
+    (signal-cancel this))
+
+  (^void request [this ^long n]
+    (signal-request this n))
+
+  Runnable
+  (^void run [this]
+    (try
+      (let [signal (.poll ^Queue queue)]
+        (when (not @canceled)
+          (case (:type signal)
+            ::request (handle-request this (:number signal))
+            ::send (handle-send this)
+            ::cancel (handle-cancel this)
+            ::subscribe (handle-subscribe this))))
+      (finally
+        (atomic/set! active false)
+        (when-not (.isEmpty ^Queue queue)
+          (schedule this))))))
+
+(deftype Publisher [source subscriptions options]
+  clojure.lang.Seqable
+  (seq [p]
+    (seq (common/subscribe p)))
+
+  org.reactivestreams.Publisher
+  (^void subscribe [this ^Subscriber subscriber]
+    (let [sub (Subscription.
+               (atomic/boolean false)
+               (atomic/boolean false)
+               (atomic/long 0)
+               (ConcurrentLinkedQueue.)
+               this
+               subscriber)]
+      (.add ^Set subscriptions sub)
+      (signal-subscribe sub)
+      sub)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod common/handle-cancel ::channel
+(defn- terminate
+  "Mark a subscrition as terminated
+  with provided exception."
+  [^Subscription sub e]
+  (let [^Subscriber subscriber (.-subscriber sub)]
+    (handle-cancel sub)
+    (try
+      (.onError subscriber e)
+      (catch Throwable t
+        (IllegalStateException. "Violated the Reactive Streams rule 2.13")))))
+
+(defn- schedule
+  "Schedule the subscrption to be executed
+  in builtin scheduler executor."
+  [^Subscription sub]
+  (let [active (.-active sub)
+        canceled (.-canceled sub)
+        queue (.-queue sub)]
+    (when (atomic/compare-and-set! active false true)
+      (try
+        (.execute ^Executor common/*executor* ^Runnable sub)
+        (catch Throwable t
+          (when (not @canceled)
+            (atomic/set! canceled true)
+            (try
+              (terminate sub (IllegalStateException. "Unavailable executor."))
+              (finally
+                (.clear ^Queue queue)
+                (atomic/set! active false)))))))))
+
+(defn- signal
+  "Notify the subscription about specific event."
+  [sub m]
+  (let [^Queue queue (.-queue sub)]
+    (when (.offer queue m)
+      (schedule sub))))
+
+(defn- signal-request
+  "Signal the request event."
+  [sub n]
+  (signal sub {:type ::request :number n}))
+
+(defn- signal-send
+  "Signal the send event."
+  [sub]
+  (signal sub {:type ::send}))
+
+(defn- signal-subscribe
+  "Signal the subscribe event."
+  [sub]
+  (signal sub {:type ::subscribe}))
+
+(defn- signal-cancel
+  "Signal the cancel event."
+  [sub]
+  (signal sub {:type ::cancel}))
+
+(defn- handle-request
+  "A generic implementation for request events
+  handling for any type of subscriptions."
+  [^Subscription sub n]
+  (let [demand (.-demand sub)]
+    (cond
+      (< n 1)
+      (terminate sub (IllegalStateException. "violated the Reactive Streams rule 3.9"))
+
+      (< (+ @demand n) 1)
+      (do
+        (atomic/set! demand Long/MAX_VALUE)
+        (handle-send sub))
+
+      :else
+      (do
+        (atomic/get-and-add! demand n)
+        (handle-send sub)))))
+
+(defn- handle-cancel
   [^Subscription sub]
   (let [^Publisher publisher (.-publisher sub)
         ^Set subscriptions (.-subscriptions publisher)
@@ -49,7 +189,7 @@
       (when (:close options)
         (async/close! source)))))
 
-(defmethod common/handle-subscribe ::channel
+(defn- handle-subscribe
   [^Subscription sub]
   (let [^Publisher publisher (.-publisher sub)
         ^Subscriber subscriber (.-subscriber sub)
@@ -59,16 +199,16 @@
       (try
         (.onSubscribe subscriber sub)
         (catch Throwable t
-          (common/terminate sub (IllegalStateException. "Violated the Reactive Streams rule 2.13"))))
+          (terminate sub (IllegalStateException. "Violated the Reactive Streams rule 2.13"))))
       (when (asyncp/closed? source)
         (try
-          (common/handle-cancel sub)
+          (handle-cancel sub)
           (.onComplete subscriber)
           (catch Throwable t
             ;; (IllegalStateException. "Violated the Reactive Streams rule 2.13")
             ))))))
 
-(defmethod common/handle-send ::channel
+(defn- handle-send
   [sub]
   (let [^Publisher publisher (.-publisher sub)
         ^Subscriber subscriber (.-subscriber sub)
@@ -78,14 +218,14 @@
                           (try
                             (if (nil? value)
                               (do
-                                (common/handle-cancel sub)
+                                (handle-cancel sub)
                                 (.onComplete subscriber))
                               (let [demand (atomic/dec-and-get! (.-demand sub))]
                                 (.onNext subscriber value)
                                 (when (and (not @canceled) (pos? demand))
-                                  (common/signal-send sub))))
+                                  (signal-send sub))))
                             (catch Throwable t
-                              (common/handle-cancel sub)))))))
+                              (handle-cancel sub)))))))
 
 (defn publisher
   "A publisher constructor with core.async
@@ -93,4 +233,5 @@
   instance is of unicast type."
   ([source] (publisher source {}))
   ([source options]
-   (common/publisher ::channel source options)))
+  (let [subscriptions (Collections/synchronizedSet (HashSet.))]
+    (Publisher. source subscriptions options))))
