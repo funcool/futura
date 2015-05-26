@@ -289,8 +289,8 @@
 
 (defn all
   "Given an array of promises, return a promise
-  that is fulfilled  when all the items in the
-  array are fulfilled."
+  that is resolved  when all the items in the
+  array are resolved."
   [promises]
   (let [promises (map promise promises)
         futures (map future promises)
@@ -302,8 +302,8 @@
 
 (defn any
   "Given an array of promises, return a promise
-  that is fulfilled when first one item in the
-  array is fulfilled."
+  that is resolved when first one item in the
+  array is resolved."
   [promises]
   (let [xform (comp
                (map promise)
