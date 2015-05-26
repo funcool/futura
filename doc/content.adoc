@@ -1,7 +1,7 @@
 = futura - The building blocks for asynchronous programming in Clojure.
 Andrey Antukh, <niwi@niwi.be>
 :toc: left
-:toclevels: 1
+:toclevels: 2
 :numbered:
 :source-highlighter: pygments
 :pygments-style: friendly
@@ -20,8 +20,8 @@ asynchronous values for the link:https://github.com/funcool/catacumba[catacumba 
 
 It there already existing libraries in clojure ecosystem such as _manifold_ that are well
 established and intends to be a "lingua franca" for asynchronous computation results. But I think
-that here there space for an alternative with different vision. For more information see
-<<difference-with-manifold,this>> faq entry.
+that here there space for an alternative with different vision. For see more detailed information
+about the differences with _manifold_, see <<difference-with-manifold,this>> faq entry.
 
 The _futura_ library at this moment provides three different building blocks:
 
@@ -51,33 +51,18 @@ Since _futura_ is a young project there may be some API breakage.
 
 == Install
 
-This section covers the installation and requirements of the _futura_ library.
-
-
-=== Leiningen
-
 The simplest way to use _futura_ library in a ClojureScript project is by including
-it as a dependency in your *_project.clj_*:
+it as a dependency:
 
-[source,clojure]
+[source, clojure]
 ----
 [funcool/futura "0.1.0-alpha2"]
 ----
 
-
-=== Get the Code
-
-_futura_ is open source and can be found on link:https://github.com/funcool/futura[github].
-
-You can clone the public repository with this command:
-
-[source,text]
-----
-git clone https://github.com/funcool/futura
-----
+== User Guide
 
 
-== Promises
+=== Promises
 
 Is the abstraction that represents the result of an asynchronous operation that will be eventually
 available.
@@ -87,12 +72,19 @@ our circumstances it is very limited approach. The _futura_'s promise abstractio
 completable future as underlying implementation and and all promises can be easily coerced to
 jdk future or completable future.
 
+The promise consists in a container that eventually will contain a value with builtin support for
+error handling. So the promise has three different states:
 
-=== Creating a promise.
+- `pending`: means that the promise does not contains any value.
+- `resolved`: means that the promise contains a value.
+- `rejected`: means thet the promise contains an error.
+
+
+
+==== Creating a promise.
 
 It there several different ways to create a promise in _futura_ library. You can create it inmediatelly
-resolved with initial value, inmediatelly rejected with some exception, use a "javascript" like approach
-creating it from a callback or use the clojure's approach with `deliver` like function.
+resolved with initial value, inmediatelly rejected with some exception.
 
 Let start with a basic example using the commonly known promise delivering in clojure:
 
@@ -126,12 +118,27 @@ also blocking and unblocking operations:
 If the promise is resolved with an exception instance, the `deref` operation will raise that
 exception.
 
+An other way to create a promise is using a factory function that can resolve or reject
+promise in asynchrnous way. If you are familiar with javascript promises, you will found
+that very similar:
 
-=== State checking
+[source, clojure]
+----
+(def pr (p/promise
+          (fn [deliver]
+            (deliver 1))))
 
-_futura_ provides useful predicates that will allow check the state of a promise in any time.
+@pr
+;; 1
+----
 
-Let see some examples:
+If you try to deref a promise that is rejected, the exception will be rereaised in the
+calling thread.
+
+
+==== State checking
+
+_futura_ provides useful predicates that will allow check the state of a promise in any time. Let see some examples:
 
 [source, clojure]
 ----
@@ -143,15 +150,20 @@ Let see some examples:
 (p/pending? pr)
 ;; => false
 
-(p/fulfilled? pr)
+(p/resolved? pr)
 ;; => true
 
 (p/rejected? pr)
 ;; => false
+
+(p/done? pr)
+;; => true
 ----
 
+The `done?` predicate checks if a promise is fullfiled or not independently if is resolved or rejected.
 
-=== Promise chaining
+
+==== Promise chaining
 
 Additionally, _futura_ offers powerful chaining methods for allow easy compose async computations. In
 previous examples we have seen `then` function, let see an other more complex example using it:
@@ -168,8 +180,23 @@ previous examples we have seen `then` function, let see an other more complex ex
 ;; It will print 4.
 ----
 
+It also exposes a chain method for error handling:
 
-=== Collections of promises
+[source, clojure]
+----
+(def pr (-> (p/promise 2)
+            (p/then (fn [v] (throw (ex-info "foobar" {}))))))
+
+(p/catch pr (fn [error]
+              (println "Error:" (.getMessage error))))
+;; Will print something like "Error: foobar"
+----
+
+The `catch` chain function also return a promise. Promise that will be resolved or rejected
+depending on that will happen inside the catch handler.
+
+
+==== Collections of promises
 
 In some circumstances you will want wait a completion of few promises at same time, and _futura_
 also provides helpers for that:
@@ -184,7 +211,7 @@ also provides helpers for that:
 ----
 
 
-== Streams
+=== Streams
 
 The streams in _futura_ library are governed by the
 link:http://www.reactive-streams.org/[reactive streams] iniciative and its default interfaces
@@ -194,24 +221,14 @@ transducers and sequence abstractions and with great interoprability with existi
 In summary, is a reactive-streams implementation on top of clojure abstractions and works as
 intermediary between clojure and the java world.
 
-The reactive streams has four participants, but in the clojure part we only need two:
-
-* *Publisher* Is a stream source. +
-  Thanks to this library you can create a publisher from different kind of stream implementations, such
-  as _core.async_, _manifold_, _lazyseq_, iterable, and much others explaned in below.
-* *Subscription* Is a consumer of the source. +
-  This abstraction no has direct translation to the reactive-streams abstraction because the
-  reactive-streams abstraction is oriented for Object Oriented programing languages like java. The
-  subscription in this library is a opaque object that allows you retrieve data from the publisher. +
-  Addionally to the ad-hoc functions for work with subscriptions, it implements the appropiate
-  protocols for play well with _core.async_, allowing using it in go blocks.
+The reactive streams has four participants, but in the clojure part we only need one: the Publisher.
 
 
-=== First contact
+==== First contact
 
 The _futura_'s streams api is really very simple. It consists in ver few functions.
 
-Let's go to create our first publisher empty publisher:
+Let's go to create our first publisher:
 
 [source, clojure]
 ----
@@ -220,7 +237,7 @@ Let's go to create our first publisher empty publisher:
 (def s (stream/publisher))
 ----
 
-The `stream` function without additional parameters creates a empty, and unbuffered publisher. Now 
+The `publisher` function without additional parameters creates a empty, and unbuffered publisher. Now
 you can put the items to the using the `put!` function:
 
 [source, clojure]
@@ -243,7 +260,18 @@ And finally, for obtain values from the publisher, you should create a subscript
 The return value of `take!` function is also a promise and will be resolved with a value when the first
 one will be available.
 
-You should known that everything in this implementation is lazy. Creatin susbscrion does not
+Take care that the `subscribe` function it is not analogous to the `.subscribe` method of the publisher.
+Instead of creating opaque object that acts as relation betwen the publisher and the subscriber, the
+`subscribe` function creates a open object that does not has direct relation with any subscriber.
+
+Obviously, behind the schenes the `subscribe` function uses the publishers `.subscribe` method. So the
+publisher implementation is completelly interopreable with other third party libraries and the java world.
+
+This subscription strategy has some advantages over the purposed by the reactive-streams, because you can
+treat it like a subscription stream. It implements convenient interfaces for the ability to treat the
+subscription like a clojure sequence, java iterable or even core.async channel.
+
+You should known that everything in this implementation is lazy. Creating subscription does not
 automatically request all items from publisher. A subscription will only request a item to the publisher
 when you are request it.
 
@@ -254,7 +282,7 @@ care, the publisher can end early and subscrion will be closed also before with-
 `.close()` method.
 
 
-=== Source the publisher
+==== Source the publisher
 
 As we said previously, the real purpose of this abstraction is using it as connection with java world,
 surelly if you are clojure only user you may want use _core.async_ or _manifold_ directly without
@@ -270,7 +298,7 @@ publisher from the existing abstractions in clojure. Now, let se how you can do 
 .Example creating a publisher instance from any object that implements `Iterable`:
 [source, clojure]
 ----
-(def pub (p/publisher (take 1 (iterate inc 1))))
+(def pub (p/publisher (take 5 (iterate inc 1))))
 
 (into [] pub)
 ;; => [1 2 3 4 5]
@@ -280,15 +308,15 @@ As you can observe the previous example, you can see that the publisher can be e
 to sequence. That happens because publisher implements the clojure's `Seqable` interface that behind
 the scenes uses a subscription and blocking access to all items until the subscription is closed.
 
-So, you can create a publisher from this kind of abstractions: *promise*, jdk8 *completable future*, 
+So, you can create a publisher from this kind of abstractions: *promise*, jdk8 *completable future*,
 manifold *deferred*, manifold *stream*, *sequences* and *iterables*.
 
 
-=== Composable trasnformations
+==== Composable trasnformations
 
 Additionally to the previously mentioned abstractions, you can create a publisher from another
-publisher. This kind of composition allows you attach a transducer for apply some kind of
-transformations.
+publisher using the `transform` function. This kind of composition allows you attach a transducer
+for apply some kind of transformations to the stream values.
 
 Take care de some implementation detail: the transducer is applied for subscriptions, not for the
 publisher. So, if you use some kind of `(take N)` transducer with possible infinite publisher, it will
@@ -297,16 +325,17 @@ accepting new subscriptions.
 
 [source, clojure]
 ----
-(def pub (->> (p/publisher (take 1 (iterate inc 1)))
-              (p/publisher (map inc))))
+(def pub (->> (p/publisher (take 5 (iterate inc 1)))
+              (p/transform (map inc))))
 
 (into [] pub)
 ;; => [2 3 4 5 6]
 ----
 
-=== Subscription as channel
 
-One interesting thin, is that open subscriptions can be used as channels so them are fully compatible
+==== Subscription as channel
+
+One interesting thing is that open subscriptions can be used as channels so them are fully compatible
 for usage in _core.async_ go block like any other channel:
 
 [source, clojure]
@@ -320,7 +349,8 @@ for usage in _core.async_ go block like any other channel:
       (recur))))
 ----
 
-== Atomics
+
+=== Atomics
 
 This is a simple clojure friendly syntax and lightweight abstraction built on top of clojure's protocols
 for treat with JDK atomic types and reference types.
@@ -330,13 +360,13 @@ are you doing. If you do not know if you should use it or not, prefer using stan
 such as atom, ref, and agents.
 
 
-=== Atomic Reference
+==== Atomic Reference
 
 The atomic reference privides a lock-free, thread safe object reference container. The real purpose
 of this type is store a reference to an arbitrary object and will be able mutate it in a thread
 safe, lock-fre way.
 
-==== Creating an atomic reference
+===== Creating an atomic reference
 
 The atomic reference can be created with `ref` function from the `futura.atomic` namespace:
 
@@ -350,7 +380,7 @@ The atomic reference can be created with `ref` function from the `futura.atomic`
 
 //^ And it accepts different kind of typical operatons of atomic abstractions:
 
-==== Get and set values
+===== Get and set values
 
 The atomic reference provides the standard way to set or get values using `get` and `set!` functions:
 
@@ -377,7 +407,7 @@ macro or `deref` function:
 ----
 
 
-==== Special operations
+===== Special operations
 
 The atomic types usually offers some special operations, and this one is not an exception. The atomic
 refernce allow CAS operations (compare and set):
@@ -411,7 +441,7 @@ method to set the value does not guarrantee that the change is visible instantly
 ----
 
 
-=== Atomic Boolean
+==== Atomic Boolean
 
 This is a specialized version of Atomic Reference that is higtly optimized for boolean values. It
 has the same operations and implements the same abstractions that previously explained atomic ref.
@@ -425,7 +455,7 @@ You can create an atomic boolean using `boolean` function from `futura.atomic` n
 ----
 
 
-=== Atomic Long
+==== Atomic Long
 
 This is a specialized version of Atomic Reference that is highly optimized for numeric operations
 with longs. It has the same operations and implements the same abstractions that previously explained
@@ -498,6 +528,21 @@ exists some time ago.
 
 **futura** unlike Clojure and other Clojure contrib libs, does not have many
 restrictions for contributions. Just open a issue or pull request.
+
+
+== Get the Code
+
+_futura_ is open source and can be found on link:https://github.com/funcool/futura[github].
+
+You can clone the public repository with this command:
+
+[source,text]
+----
+git clone https://github.com/funcool/futura
+----
+
+
+
 
 
 == Run tests
