@@ -78,6 +78,8 @@
         (when-not (.isEmpty ^Queue queue)
           (schedule this))))))
 
+(declare terminate)
+
 (deftype Publisher [source subscriptions options]
   clojure.lang.Seqable
   (seq [p]
@@ -93,7 +95,13 @@
                this
                subscriber)]
       (.add ^Set subscriptions sub)
-      (signal-subscribe sub)
+      (try
+        (.onSubscribe subscriber sub)
+        (catch Throwable t
+          (terminate sub (IllegalStateException. "Violated the Reactive Streams rule 2.13"))))
+      ;; Temporary avoid async subscription because
+      ;; Ratpack has a bug with them: https://github.com/ratpack/ratpack/issues/682
+      ;; (signal-subscribe sub)
       sub)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -195,18 +203,17 @@
         ^Subscriber subscriber (.-subscriber sub)
         source (.-source publisher)
         canceled (.-canceled sub)]
-    (when (not @canceled)
+    (try
+      (.onSubscribe subscriber sub)
+      (catch Throwable t
+        (terminate sub (IllegalStateException. "Violated the Reactive Streams rule 2.13"))))
+    (when (asyncp/closed? source)
       (try
-        (.onSubscribe subscriber sub)
+        (handle-cancel sub)
+        (.onComplete subscriber)
         (catch Throwable t
-          (terminate sub (IllegalStateException. "Violated the Reactive Streams rule 2.13"))))
-      (when (asyncp/closed? source)
-        (try
-          (handle-cancel sub)
-          (.onComplete subscriber)
-          (catch Throwable t
-            ;; (IllegalStateException. "Violated the Reactive Streams rule 2.13")
-            ))))))
+          ;; (IllegalStateException. "Violated the Reactive Streams rule 2.13")
+          )))))
 
 (defn- handle-send
   [sub]
