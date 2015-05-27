@@ -95,13 +95,11 @@
                this
                subscriber)]
       (.add ^Set subscriptions sub)
-      (try
-        (.onSubscribe subscriber sub)
-        (catch Throwable t
-          (terminate sub (IllegalStateException. "Violated the Reactive Streams rule 2.13"))))
-      ;; Temporary avoid async subscription because
-      ;; Ratpack has a bug with them: https://github.com/ratpack/ratpack/issues/682
-      ;; (signal-subscribe sub)
+      ;; (try
+      ;;   (.onSubscribe subscriber sub)
+      ;;   (catch Throwable t
+      ;;     (terminate sub (IllegalStateException. "Violated the Reactive Streams rule 2.13"))))
+      (signal-subscribe sub)
       sub)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
