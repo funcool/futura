@@ -488,13 +488,22 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#_rationale">2. Rationale</a></li>
 <li><a href="#_project_maturity">3. Project Maturity</a></li>
 <li><a href="#_install">4. Install</a></li>
-<li><a href="#_promises">5. Promises</a></li>
-<li><a href="#_streams">6. Streams</a></li>
-<li><a href="#_atomics">7. Atomics</a></li>
-<li><a href="#_faq">8. FAQ</a></li>
-<li><a href="#_contribute">9. Contribute</a></li>
-<li><a href="#_run_tests">10. Run tests</a></li>
-<li><a href="#_license">11. License</a></li>
+<li><a href="#_user_guide">5. User Guide</a>
+<ul class="sectlevel2">
+<li><a href="#_promises">5.1. Promises</a></li>
+<li><a href="#_streams">5.2. Streams</a></li>
+<li><a href="#_atomics">5.3. Atomics</a></li>
+</ul>
+</li>
+<li><a href="#_faq">6. FAQ</a>
+<ul class="sectlevel2">
+<li><a href="#difference-with-manifold">6.1. What is the difference with manifold</a></li>
+</ul>
+</li>
+<li><a href="#_contribute">7. Contribute</a></li>
+<li><a href="#_get_the_code">8. Get the Code</a></li>
+<li><a href="#_run_tests">9. Run tests</a></li>
+<li><a href="#_license">10. License</a></li>
 </ul>
 </div>
 </div>
@@ -517,8 +526,8 @@ asynchronous values for the <a href="https://github.com/funcool/catacumba">catac
 <div class="paragraph">
 <p>It there already existing libraries in clojure ecosystem such as <em>manifold</em> that are well
 established and intends to be a "lingua franca" for asynchronous computation results. But I think
-that here there space for an alternative with different vision. For more information see
-<a href="#difference-with-manifold">this</a> faq entry.</p>
+that here there space for an alternative with different vision. For see more detailed information
+about the differences with <em>manifold</em>, see <a href="#difference-with-manifold">this</a> faq entry.</p>
 </div>
 <div class="paragraph">
 <p>The <em>futura</em> library at this moment provides three different building blocks:</p>
@@ -564,39 +573,21 @@ in the streams implementation.</p>
 <h2 id="_install"><a class="link" href="#_install">4. Install</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>This section covers the installation and requirements of the <em>futura</em> library.</p>
-</div>
-<div class="sect2">
-<h3 id="_leiningen"><a class="link" href="#_leiningen">4.1. Leiningen</a></h3>
-<div class="paragraph">
 <p>The simplest way to use <em>futura</em> library in a ClojureScript project is by including
-it as a dependency in your <strong><em>project.clj</em></strong>:</p>
+it as a dependency:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="pygments highlight"><code data-lang="clojure"><span class="tok-p">[</span><span class="tok-nv">funcool/futura</span> <span class="tok-s">&quot;0.1.0-alpha2&quot;</span><span class="tok-p">]</span></code></pre>
-</div>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_get_the_code"><a class="link" href="#_get_the_code">4.2. Get the Code</a></h3>
-<div class="paragraph">
-<p><em>futura</em> is open source and can be found on <a href="https://github.com/funcool/futura">github</a>.</p>
-</div>
-<div class="paragraph">
-<p>You can clone the public repository with this command:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="pygments highlight"><code data-lang="text">git clone https://github.com/funcool/futura</code></pre>
-</div>
+<pre class="pygments highlight"><code data-lang="clojure"><span class="tok-p">[</span><span class="tok-nv">funcool/futura</span> <span class="tok-s">&quot;0.2.0&quot;</span><span class="tok-p">]</span></code></pre>
 </div>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_promises"><a class="link" href="#_promises">5. Promises</a></h2>
+<h2 id="_user_guide"><a class="link" href="#_user_guide">5. User Guide</a></h2>
 <div class="sectionbody">
+<div class="sect2">
+<h3 id="_promises"><a class="link" href="#_promises">5.1. Promises</a></h3>
 <div class="paragraph">
 <p>Is the abstraction that represents the result of an asynchronous operation that will be eventually
 available.</p>
@@ -607,12 +598,28 @@ our circumstances it is very limited approach. The <em>futura</em>'s promise abs
 completable future as underlying implementation and and all promises can be easily coerced to
 jdk future or completable future.</p>
 </div>
-<div class="sect2">
-<h3 id="_creating_a_promise"><a class="link" href="#_creating_a_promise">5.1. Creating a promise.</a></h3>
+<div class="paragraph">
+<p>The promise consists in a container that eventually will contain a value with builtin support for
+error handling. So the promise has three different states:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>pending</code>: means that the promise does not contains any value.</p>
+</li>
+<li>
+<p><code>resolved</code>: means that the promise contains a value.</p>
+</li>
+<li>
+<p><code>rejected</code>: means thet the promise contains an error.</p>
+</li>
+</ul>
+</div>
+<div class="sect3">
+<h4 id="_creating_a_promise"><a class="link" href="#_creating_a_promise">5.1.1. Creating a promise.</a></h4>
 <div class="paragraph">
 <p>It there several different ways to create a promise in <em>futura</em> library. You can create it inmediatelly
-resolved with initial value, inmediatelly rejected with some exception, use a "javascript" like approach
-creating it from a callback or use the clojure&#8217;s approach with <code>deliver</code> like function.</p>
+resolved with initial value, inmediatelly rejected with some exception.</p>
 </div>
 <div class="paragraph">
 <p>Let start with a basic example using the commonly known promise delivering in clojure:</p>
@@ -649,14 +656,30 @@ also blocking and unblocking operations:</p>
 <p>If the promise is resolved with an exception instance, the <code>deref</code> operation will raise that
 exception.</p>
 </div>
-</div>
-<div class="sect2">
-<h3 id="_state_checking"><a class="link" href="#_state_checking">5.2. State checking</a></h3>
 <div class="paragraph">
-<p><em>futura</em> provides useful predicates that will allow check the state of a promise in any time.</p>
+<p>An other way to create a promise is using a factory function that can resolve or reject
+promise in asynchrnous way. If you are familiar with javascript promises, you will found
+that very similar:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight"><code data-lang="clojure"><span class="tok-p">(</span><span class="tok-k">def </span><span class="tok-nb">pr </span><span class="tok-p">(</span><span class="tok-nf">p/promise</span>
+          <span class="tok-p">(</span><span class="tok-k">fn </span><span class="tok-p">[</span><span class="tok-nv">deliver</span><span class="tok-p">]</span>
+            <span class="tok-p">(</span><span class="tok-nf">deliver</span> <span class="tok-mi">1</span><span class="tok-p">))))</span>
+
+<span class="tok-o">@</span><span class="tok-nv">pr</span>
+<span class="tok-c1">;; 1</span></code></pre>
+</div>
 </div>
 <div class="paragraph">
-<p>Let see some examples:</p>
+<p>If you try to deref a promise that is rejected, the exception will be rereaised in the
+calling thread.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_state_checking"><a class="link" href="#_state_checking">5.1.2. State checking</a></h4>
+<div class="paragraph">
+<p><em>futura</em> provides useful predicates that will allow check the state of a promise in any time. Let see some examples:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -668,16 +691,22 @@ exception.</p>
 <span class="tok-p">(</span><span class="tok-nf">p/pending?</span> <span class="tok-nv">pr</span><span class="tok-p">)</span>
 <span class="tok-c1">;; =&gt; false</span>
 
-<span class="tok-p">(</span><span class="tok-nf">p/fulfilled?</span> <span class="tok-nv">pr</span><span class="tok-p">)</span>
+<span class="tok-p">(</span><span class="tok-nf">p/resolved?</span> <span class="tok-nv">pr</span><span class="tok-p">)</span>
 <span class="tok-c1">;; =&gt; true</span>
 
 <span class="tok-p">(</span><span class="tok-nf">p/rejected?</span> <span class="tok-nv">pr</span><span class="tok-p">)</span>
-<span class="tok-c1">;; =&gt; false</span></code></pre>
+<span class="tok-c1">;; =&gt; false</span>
+
+<span class="tok-p">(</span><span class="tok-nf">p/done?</span> <span class="tok-nv">pr</span><span class="tok-p">)</span>
+<span class="tok-c1">;; =&gt; true</span></code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The <code>done?</code> predicate checks if a promise is fullfiled or not independently if is resolved or rejected.</p>
 </div>
-<div class="sect2">
-<h3 id="_promise_chaining"><a class="link" href="#_promise_chaining">5.3. Promise chaining</a></h3>
+</div>
+<div class="sect3">
+<h4 id="_promise_chaining"><a class="link" href="#_promise_chaining">5.1.3. Promise chaining</a></h4>
 <div class="paragraph">
 <p>Additionally, <em>futura</em> offers powerful chaining methods for allow easy compose async computations. In
 previous examples we have seen <code>then</code> function, let see an other more complex example using it:</p>
@@ -694,9 +723,26 @@ previous examples we have seen <code>then</code> function, let see an other more
 <span class="tok-c1">;; It will print 4.</span></code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>It also exposes a chain method for error handling:</p>
 </div>
-<div class="sect2">
-<h3 id="_collections_of_promises"><a class="link" href="#_collections_of_promises">5.4. Collections of promises</a></h3>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight"><code data-lang="clojure"><span class="tok-p">(</span><span class="tok-k">def </span><span class="tok-nb">pr </span><span class="tok-p">(</span><span class="tok-nb">-&gt; </span><span class="tok-p">(</span><span class="tok-nf">p/promise</span> <span class="tok-mi">2</span><span class="tok-p">)</span>
+            <span class="tok-p">(</span><span class="tok-nf">p/then</span> <span class="tok-p">(</span><span class="tok-k">fn </span><span class="tok-p">[</span><span class="tok-nv">v</span><span class="tok-p">]</span> <span class="tok-p">(</span><span class="tok-nf">throw</span> <span class="tok-p">(</span><span class="tok-nf">ex-info</span> <span class="tok-s">&quot;foobar&quot;</span> <span class="tok-p">{}))))))</span>
+
+<span class="tok-p">(</span><span class="tok-nf">p/catch</span> <span class="tok-nb">pr </span><span class="tok-p">(</span><span class="tok-k">fn </span><span class="tok-p">[</span><span class="tok-nv">error</span><span class="tok-p">]</span>
+              <span class="tok-p">(</span><span class="tok-nb">println </span><span class="tok-s">&quot;Error:&quot;</span> <span class="tok-p">(</span><span class="tok-nf">.getMessage</span> <span class="tok-nv">error</span><span class="tok-p">))))</span>
+<span class="tok-c1">;; Will print something like &quot;Error: foobar&quot;</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>catch</code> chain function also return a promise. Promise that will be resolved or rejected
+depending on that will happen inside the catch handler.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_collections_of_promises"><a class="link" href="#_collections_of_promises">5.1.4. Collections of promises</a></h4>
 <div class="paragraph">
 <p>In some circumstances you will want wait a completion of few promises at same time, and <em>futura</em>
 also provides helpers for that:</p>
@@ -712,10 +758,8 @@ also provides helpers for that:</p>
 </div>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="_streams"><a class="link" href="#_streams">6. Streams</a></h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="_streams"><a class="link" href="#_streams">5.2. Streams</a></h3>
 <div class="paragraph">
 <p>The streams in <em>futura</em> library are governed by the
 <a href="http://www.reactive-streams.org/">reactive streams</a> iniciative and its default interfaces
@@ -727,32 +771,15 @@ transducers and sequence abstractions and with great interoprability with existi
 intermediary between clojure and the java world.</p>
 </div>
 <div class="paragraph">
-<p>The reactive streams has four participants, but in the clojure part we only need two:</p>
+<p>The reactive streams has four participants, but in the clojure part we only need one: the Publisher.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><strong>Publisher</strong> Is a stream source.<br>
-Thanks to this library you can create a publisher from different kind of stream implementations, such
-as <em>core.async</em>, <em>manifold</em>, <em>lazyseq</em>, iterable, and much others explaned in below.</p>
-</li>
-<li>
-<p><strong>Subscription</strong> Is a consumer of the source.<br>
-This abstraction no has direct translation to the reactive-streams abstraction because the
-reactive-streams abstraction is oriented for Object Oriented programing languages like java. The
-subscription in this library is a opaque object that allows you retrieve data from the publisher.<br>
-Addionally to the ad-hoc functions for work with subscriptions, it implements the appropiate
-protocols for play well with <em>core.async</em>, allowing using it in go blocks.</p>
-</li>
-</ul>
-</div>
-<div class="sect2">
-<h3 id="_first_contact"><a class="link" href="#_first_contact">6.1. First contact</a></h3>
+<div class="sect3">
+<h4 id="_first_contact"><a class="link" href="#_first_contact">5.2.1. First contact</a></h4>
 <div class="paragraph">
 <p>The <em>futura</em>'s streams api is really very simple. It consists in ver few functions.</p>
 </div>
 <div class="paragraph">
-<p>Let&#8217;s go to create our first publisher empty publisher:</p>
+<p>Let&#8217;s go to create our first publisher:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -762,7 +789,7 @@ protocols for play well with <em>core.async</em>, allowing using it in go blocks
 </div>
 </div>
 <div class="paragraph">
-<p>The <code>stream</code> function without additional parameters creates a empty, and unbuffered publisher. Now
+<p>The <code>publisher</code> function without additional parameters creates a empty, and unbuffered publisher. Now
 you can put the items to the using the <code>put!</code> function:</p>
 </div>
 <div class="listingblock">
@@ -789,7 +816,21 @@ will request a value.</p>
 one will be available.</p>
 </div>
 <div class="paragraph">
-<p>You should known that everything in this implementation is lazy. Creatin susbscrion does not
+<p>Take care that the <code>subscribe</code> function it is not analogous to the <code>.subscribe</code> method of the publisher.
+Instead of creating opaque object that acts as relation betwen the publisher and the subscriber, the
+<code>subscribe</code> function creates a open object that does not has direct relation with any subscriber.</p>
+</div>
+<div class="paragraph">
+<p>Obviously, behind the schenes the <code>subscribe</code> function uses the publishers <code>.subscribe</code> method. So the
+publisher implementation is completelly interopreable with other third party libraries and the java world.</p>
+</div>
+<div class="paragraph">
+<p>This subscription strategy has some advantages over the purposed by the reactive-streams, because you can
+treat it like a subscription stream. It implements convenient interfaces for the ability to treat the
+subscription like a clojure sequence, java iterable or even core.async channel.</p>
+</div>
+<div class="paragraph">
+<p>You should known that everything in this implementation is lazy. Creating subscription does not
 automatically request all items from publisher. A subscription will only request a item to the publisher
 when you are request it.</p>
 </div>
@@ -801,8 +842,8 @@ care, the publisher can end early and subscrion will be closed also before with-
 <code>.close()</code> method.</p>
 </div>
 </div>
-<div class="sect2">
-<h3 id="_source_the_publisher"><a class="link" href="#_source_the_publisher">6.2. Source the publisher</a></h3>
+<div class="sect3">
+<h4 id="_source_the_publisher"><a class="link" href="#_source_the_publisher">5.2.2. Source the publisher</a></h4>
 <div class="paragraph">
 <p>As we said previously, the real purpose of this abstraction is using it as connection with java world,
 surelly if you are clojure only user you may want use <em>core.async</em> or <em>manifold</em> directly without
@@ -820,7 +861,7 @@ publisher from the existing abstractions in clojure. Now, let se how you can do 
 <div class="listingblock">
 <div class="title">Example creating a publisher instance from any object that implements <code>Iterable</code>:</div>
 <div class="content">
-<pre class="pygments highlight"><code data-lang="clojure"><span class="tok-p">(</span><span class="tok-k">def </span><span class="tok-nv">pub</span> <span class="tok-p">(</span><span class="tok-nf">p/publisher</span> <span class="tok-p">(</span><span class="tok-nb">take </span><span class="tok-mi">1</span> <span class="tok-p">(</span><span class="tok-nb">iterate inc </span><span class="tok-mi">1</span><span class="tok-p">))))</span>
+<pre class="pygments highlight"><code data-lang="clojure"><span class="tok-p">(</span><span class="tok-k">def </span><span class="tok-nv">pub</span> <span class="tok-p">(</span><span class="tok-nf">p/publisher</span> <span class="tok-p">(</span><span class="tok-nb">take </span><span class="tok-mi">5</span> <span class="tok-p">(</span><span class="tok-nb">iterate inc </span><span class="tok-mi">1</span><span class="tok-p">))))</span>
 
 <span class="tok-p">(</span><span class="tok-nb">into </span><span class="tok-p">[]</span> <span class="tok-nv">pub</span><span class="tok-p">)</span>
 <span class="tok-c1">;; =&gt; [1 2 3 4 5]</span></code></pre>
@@ -836,12 +877,12 @@ the scenes uses a subscription and blocking access to all items until the subscr
 manifold <strong>deferred</strong>, manifold <strong>stream</strong>, <strong>sequences</strong> and <strong>iterables</strong>.</p>
 </div>
 </div>
-<div class="sect2">
-<h3 id="_composable_trasnformations"><a class="link" href="#_composable_trasnformations">6.3. Composable trasnformations</a></h3>
+<div class="sect3">
+<h4 id="_composable_trasnformations"><a class="link" href="#_composable_trasnformations">5.2.3. Composable trasnformations</a></h4>
 <div class="paragraph">
 <p>Additionally to the previously mentioned abstractions, you can create a publisher from another
-publisher. This kind of composition allows you attach a transducer for apply some kind of
-transformations.</p>
+publisher using the <code>transform</code> function. This kind of composition allows you attach a transducer
+for apply some kind of transformations to the stream values.</p>
 </div>
 <div class="paragraph">
 <p>Take care de some implementation detail: the transducer is applied for subscriptions, not for the
@@ -851,18 +892,18 @@ accepting new subscriptions.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="pygments highlight"><code data-lang="clojure"><span class="tok-p">(</span><span class="tok-k">def </span><span class="tok-nv">pub</span> <span class="tok-p">(</span><span class="tok-nf">-&gt;&gt;</span> <span class="tok-p">(</span><span class="tok-nf">p/publisher</span> <span class="tok-p">(</span><span class="tok-nb">take </span><span class="tok-mi">1</span> <span class="tok-p">(</span><span class="tok-nb">iterate inc </span><span class="tok-mi">1</span><span class="tok-p">)))</span>
-              <span class="tok-p">(</span><span class="tok-nf">p/publisher</span> <span class="tok-p">(</span><span class="tok-nb">map </span><span class="tok-nv">inc</span><span class="tok-p">))))</span>
+<pre class="pygments highlight"><code data-lang="clojure"><span class="tok-p">(</span><span class="tok-k">def </span><span class="tok-nv">pub</span> <span class="tok-p">(</span><span class="tok-nf">-&gt;&gt;</span> <span class="tok-p">(</span><span class="tok-nf">p/publisher</span> <span class="tok-p">(</span><span class="tok-nb">take </span><span class="tok-mi">5</span> <span class="tok-p">(</span><span class="tok-nb">iterate inc </span><span class="tok-mi">1</span><span class="tok-p">)))</span>
+              <span class="tok-p">(</span><span class="tok-nf">p/transform</span> <span class="tok-p">(</span><span class="tok-nb">map </span><span class="tok-nv">inc</span><span class="tok-p">))))</span>
 
 <span class="tok-p">(</span><span class="tok-nb">into </span><span class="tok-p">[]</span> <span class="tok-nv">pub</span><span class="tok-p">)</span>
 <span class="tok-c1">;; =&gt; [2 3 4 5 6]</span></code></pre>
 </div>
 </div>
 </div>
-<div class="sect2">
-<h3 id="_subscription_as_channel"><a class="link" href="#_subscription_as_channel">6.4. Subscription as channel</a></h3>
+<div class="sect3">
+<h4 id="_subscription_as_channel"><a class="link" href="#_subscription_as_channel">5.2.4. Subscription as channel</a></h4>
 <div class="paragraph">
-<p>One interesting thin, is that open subscriptions can be used as channels so them are fully compatible
+<p>One interesting thing is that open subscriptions can be used as channels so them are fully compatible
 for usage in <em>core.async</em> go block like any other channel:</p>
 </div>
 <div class="listingblock">
@@ -878,10 +919,8 @@ for usage in <em>core.async</em> go block like any other channel:</p>
 </div>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="_atomics"><a class="link" href="#_atomics">7. Atomics</a></h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="_atomics"><a class="link" href="#_atomics">5.3. Atomics</a></h3>
 <div class="paragraph">
 <p>This is a simple clojure friendly syntax and lightweight abstraction built on top of clojure&#8217;s protocols
 for treat with JDK atomic types and reference types.</p>
@@ -891,15 +930,15 @@ for treat with JDK atomic types and reference types.</p>
 are you doing. If you do not know if you should use it or not, prefer using standard clojure primitives
 such as atom, ref, and agents.</p>
 </div>
-<div class="sect2">
-<h3 id="_atomic_reference"><a class="link" href="#_atomic_reference">7.1. Atomic Reference</a></h3>
+<div class="sect3">
+<h4 id="_atomic_reference"><a class="link" href="#_atomic_reference">5.3.1. Atomic Reference</a></h4>
 <div class="paragraph">
 <p>The atomic reference privides a lock-free, thread safe object reference container. The real purpose
 of this type is store a reference to an arbitrary object and will be able mutate it in a thread
 safe, lock-fre way.</p>
 </div>
-<div class="sect3">
-<h4 id="_creating_an_atomic_reference"><a class="link" href="#_creating_an_atomic_reference">7.1.1. Creating an atomic reference</a></h4>
+<div class="sect4">
+<h5 id="_creating_an_atomic_reference"><a class="link" href="#_creating_an_atomic_reference">Creating an atomic reference</a></h5>
 <div class="paragraph">
 <p>The atomic reference can be created with <code>ref</code> function from the <code>futura.atomic</code> namespace:</p>
 </div>
@@ -912,8 +951,8 @@ safe, lock-fre way.</p>
 </div>
 </div>
 </div>
-<div class="sect3">
-<h4 id="_get_and_set_values"><a class="link" href="#_get_and_set_values">7.1.2. Get and set values</a></h4>
+<div class="sect4">
+<h5 id="_get_and_set_values"><a class="link" href="#_get_and_set_values">Get and set values</a></h5>
 <div class="paragraph">
 <p>The atomic reference provides the standard way to set or get values using <code>get</code> and <code>set!</code> functions:</p>
 </div>
@@ -941,8 +980,8 @@ macro or <code>deref</code> function:</p>
 </div>
 </div>
 </div>
-<div class="sect3">
-<h4 id="_special_operations"><a class="link" href="#_special_operations">7.1.3. Special operations</a></h4>
+<div class="sect4">
+<h5 id="_special_operations"><a class="link" href="#_special_operations">Special operations</a></h5>
 <div class="paragraph">
 <p>The atomic types usually offers some special operations, and this one is not an exception. The atomic
 refernce allow CAS operations (compare and set):</p>
@@ -979,8 +1018,8 @@ method to set the value does not guarrantee that the change is visible instantly
 </div>
 </div>
 </div>
-<div class="sect2">
-<h3 id="_atomic_boolean"><a class="link" href="#_atomic_boolean">7.2. Atomic Boolean</a></h3>
+<div class="sect3">
+<h4 id="_atomic_boolean"><a class="link" href="#_atomic_boolean">5.3.2. Atomic Boolean</a></h4>
 <div class="paragraph">
 <p>This is a specialized version of Atomic Reference that is higtly optimized for boolean values. It
 has the same operations and implements the same abstractions that previously explained atomic ref.</p>
@@ -995,8 +1034,8 @@ has the same operations and implements the same abstractions that previously exp
 </div>
 </div>
 </div>
-<div class="sect2">
-<h3 id="_atomic_long"><a class="link" href="#_atomic_long">7.3. Atomic Long</a></h3>
+<div class="sect3">
+<h4 id="_atomic_long"><a class="link" href="#_atomic_long">5.3.3. Atomic Long</a></h4>
 <div class="paragraph">
 <p>This is a specialized version of Atomic Reference that is highly optimized for numeric operations
 with longs. It has the same operations and implements the same abstractions that previously explained
@@ -1048,11 +1087,12 @@ that only fits for numeric types, such as atomic counters and similars.</p>
 </div>
 </div>
 </div>
+</div>
 <div class="sect1">
-<h2 id="_faq"><a class="link" href="#_faq">8. FAQ</a></h2>
+<h2 id="_faq"><a class="link" href="#_faq">6. FAQ</a></h2>
 <div class="sectionbody">
 <div class="sect2">
-<h3 id="difference-with-manifold"><a class="link" href="#difference-with-manifold">8.1. What is the difference with manifold</a></h3>
+<h3 id="difference-with-manifold"><a class="link" href="#difference-with-manifold">6.1. What is the difference with manifold</a></h3>
 <div class="paragraph">
 <p>Bot libraries offers similar abstractions, <em>futura</em> offers promises and streams and <em>manifold</em> offers
 deferreds and streams. The main difference of this libraries is clearly philosoficaly:</p>
@@ -1080,7 +1120,7 @@ exists some time ago.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_contribute"><a class="link" href="#_contribute">9. Contribute</a></h2>
+<h2 id="_contribute"><a class="link" href="#_contribute">7. Contribute</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p><strong>futura</strong> unlike Clojure and other Clojure contrib libs, does not have many
@@ -1089,7 +1129,23 @@ restrictions for contributions. Just open a issue or pull request.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_run_tests"><a class="link" href="#_run_tests">10. Run tests</a></h2>
+<h2 id="_get_the_code"><a class="link" href="#_get_the_code">8. Get the Code</a></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><em>futura</em> is open source and can be found on <a href="https://github.com/funcool/futura">github</a>.</p>
+</div>
+<div class="paragraph">
+<p>You can clone the public repository with this command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="pygments highlight"><code data-lang="text">git clone https://github.com/funcool/futura</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_run_tests"><a class="link" href="#_run_tests">9. Run tests</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>For run tests just execute this:</p>
@@ -1102,7 +1158,7 @@ restrictions for contributions. Just open a issue or pull request.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_license"><a class="link" href="#_license">11. License</a></h2>
+<h2 id="_license"><a class="link" href="#_license">10. License</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p><em>futura</em> is licensed under BSD (2-Clause) license:</p>
@@ -1140,7 +1196,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</pre>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2015-05-04 12:06:22 CEST
+Last updated 2015-05-27 16:58:12 CEST
 </div>
 </div>
 </body>
