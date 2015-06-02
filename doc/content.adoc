@@ -508,14 +508,13 @@ And optionally you can increment it with user specified delta:
 [[difference-with-manifold]]
 === What is the difference with manifold
 
-Bot libraries offers similar abstractions, _futura_ offers promises and streams and _manifold_ offers
+Both libraries offers similar abstractions, _futura_ offers promises and streams and _manifold_ offers
 deferreds and streams. The main difference of this libraries is clearly philosoficaly:
 
 - _manifold_ build own abstraction for work with streams, _futura_ uses an existing and interoprable
   abstraction.
-- _manifold_ implements its own defferred, _futura_ uses the already one defined in jdk8 (completable
-  future).
-_ _manifold_ raises own syntax abstraction (`let-flow` and similars), _futura_ implements an existing
+- _manifold_ implements its own defferred, _futura_ uses the already one defined in jdk8 (completable future).
+- _manifold_ raises own syntax abstraction (`let-flow` and similars), _futura_ implements an existing
   monad abstraction from link:https://github.com/funcool/cats[cats library] that alread offers generic
   let like syntax that serves for compose asynchronous computations that looks sync.
 
