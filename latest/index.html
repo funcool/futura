@@ -642,19 +642,17 @@ resolved with initial value, inmediatelly rejected with some exception.</p>
 </div>
 <div class="paragraph">
 <p>The <em>futura</em>'s promises can be used as drop in replacement for clojure promises, because them offers
-also blocking and unblocking operations:</p>
+also blocking operations:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="pygments highlight"><code data-lang="clojure"><span class="tok-c1">;; Access to previously defined promise in a blocking way</span>
-
-<span class="tok-o">@</span><span class="tok-nv">pr</span>
+<pre class="pygments highlight"><code data-lang="clojure"><span class="tok-o">@</span><span class="tok-nv">pr</span>
 <span class="tok-c1">;; =&gt; 20</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>If the promise is resolved with an exception instance, the <code>deref</code> operation will raise that
-exception.</p>
+<p>If you try to deref a promise that is rejected, the exception will be rereaised in the
+calling thread.</p>
 </div>
 <div class="paragraph">
 <p>An other way to create a promise is using a factory function that can resolve or reject
@@ -665,15 +663,8 @@ that very similar:</p>
 <div class="content">
 <pre class="pygments highlight"><code data-lang="clojure"><span class="tok-p">(</span><span class="tok-k">def </span><span class="tok-nb">pr </span><span class="tok-p">(</span><span class="tok-nf">p/promise</span>
           <span class="tok-p">(</span><span class="tok-k">fn </span><span class="tok-p">[</span><span class="tok-nv">deliver</span><span class="tok-p">]</span>
-            <span class="tok-p">(</span><span class="tok-nf">deliver</span> <span class="tok-mi">1</span><span class="tok-p">))))</span>
-
-<span class="tok-o">@</span><span class="tok-nv">pr</span>
-<span class="tok-c1">;; 1</span></code></pre>
+            <span class="tok-p">(</span><span class="tok-nf">deliver</span> <span class="tok-mi">1</span><span class="tok-p">))))</span></code></pre>
 </div>
-</div>
-<div class="paragraph">
-<p>If you try to deref a promise that is rejected, the exception will be rereaised in the
-calling thread.</p>
 </div>
 </div>
 <div class="sect3">
@@ -1197,7 +1188,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</pre>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2015-06-02 08:28:16 CEST
+Last updated 2015-06-02 08:31:50 CEST
 </div>
 </div>
 </body>
