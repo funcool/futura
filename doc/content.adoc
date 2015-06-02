@@ -104,18 +104,16 @@ Let start with a basic example using the commonly known promise delivering in cl
 ----
 
 The _futura_'s promises can be used as drop in replacement for clojure promises, because them offers
-also blocking and unblocking operations:
+also blocking operations:
 
 [source, clojure]
 ----
-;; Access to previously defined promise in a blocking way
-
 @pr
 ;; => 20
 ----
 
-If the promise is resolved with an exception instance, the `deref` operation will raise that
-exception.
+If you try to deref a promise that is rejected, the exception will be rereaised in the
+calling thread.
 
 An other way to create a promise is using a factory function that can resolve or reject
 promise in asynchrnous way. If you are familiar with javascript promises, you will found
@@ -126,13 +124,7 @@ that very similar:
 (def pr (p/promise
           (fn [deliver]
             (deliver 1))))
-
-@pr
-;; 1
 ----
-
-If you try to deref a promise that is rejected, the exception will be rereaised in the
-calling thread.
 
 
 ==== State checking
