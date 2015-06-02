@@ -69,7 +69,7 @@ available.
 
 Clojure comes with a builtin promise abstraction but it is designed only blocking operations, and in
 our circumstances it is very limited approach. The _futura_'s promise abstraction uses the jdk8
-completable future as underlying implementation and and all promises can be easily coerced to
+completable future as underlying implementation and all promises can be easily coerced to
 jdk future or completable future.
 
 The promise consists in a container that eventually will contain a value with builtin support for
@@ -78,7 +78,6 @@ error handling. So the promise has three different states:
 - `pending`: means that the promise does not contains any value.
 - `resolved`: means that the promise contains a value.
 - `rejected`: means thet the promise contains an error.
-
 
 
 ==== Creating a promise.
