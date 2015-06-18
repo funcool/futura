@@ -1,4 +1,4 @@
-(defproject funcool/futura "0.2.0-SNAPSHOT"
+(defproject funcool/futura "0.3.0-SNAPSHOT"
   :description "A basic building blocks for async programming."
   :url "https://github.com/funcool/futura"
   :license {:name "BSD (2 Clause)"

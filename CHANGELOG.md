@@ -1,6 +1,6 @@
 # Changelog #
 
-## Version 0.2.0 ##
+## Version 0.3.0 ##
 
 Date: Unreleased
 
@@ -9,12 +9,21 @@ Date: Unreleased
 - Add new `IPromiseState` protocol as result of split `IPromise`.
 - Update Clojure to 1.7.0 RC2.
 
-## Version 0.1.0-alpha2 ##
+## Version 0.2.0 ##
 
 Date: 2015-05-27
 
-- Refactor stream implementation.
+- Yet an other code refactor on streams implementation.
 - Separate publisher constructor from transformer.
+
+
+## Version 0.1.0-alpha2 ##
+
+Date: 2015-04-30
+
+- Refactor stream implementation.
+- Remove unused functions.
+- Other minor and experimental changes.
 
 
 ## Version 0.1.0-alpha1 ##
