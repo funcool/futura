@@ -40,12 +40,15 @@
 ;; The main abstraction definition.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defprotocol IPromise
-  "A promise abstraction."
+(defprotocol IPromiseState
+  "Additional state related abstraction."
   (^:private rejected* [_] "Returns true if a promise is rejected.")
   (^:private resolved* [_] "Returns true if a promise is resolved.")
   (^:private done* [_] "Retutns true if a promise is already done.")
-  (^:private pending* [_] "Retutns true if a promise is stil pending.")
+  (^:private pending* [_] "Retutns true if a promise is stil pending."))
+
+(defprotocol IPromise
+  "A basic promise abstraction."
   (^:private then* [_ callback] "Chain a promise.")
   (^:private error* [_ callback] "Catch a error in a promise."))
 
@@ -122,7 +125,7 @@
           (.setStackTrace e' (.getStackTrace e))
           (throw e')))))
 
-  IPromise
+  IPromiseState
   (rejected* [_]
     (.isCompletedExceptionally cf))
 
@@ -137,6 +140,7 @@
   (pending* [_]
     (not (.isDone cf)))
 
+  IPromise
   (then* [_ callback]
     (let [cf' (.thenApply cf (reify java.util.function.Function
                                (apply [_ v]
