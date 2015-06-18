@@ -25,6 +25,7 @@
 (ns futura.stream.channel
   (:require [futura.atomic :as atomic]
             [futura.stream.common :as common]
+            [futura.executor :as executor]
             [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as asyncp])
   (:import clojure.lang.Seqable
@@ -35,10 +36,7 @@
            java.util.HashSet
            java.util.Queue
            java.util.Collections
-           java.util.concurrent.ForkJoinPool
            java.util.concurrent.Executor
-           java.util.concurrent.Executors
-           java.util.concurrent.CountDownLatch
            java.util.concurrent.ConcurrentLinkedQueue))
 
 (declare signal-cancel)
@@ -126,7 +124,7 @@
         queue (.-queue sub)]
     (when (atomic/compare-and-set! active false true)
       (try
-        (.execute ^Executor common/*executor* ^Runnable sub)
+        (.execute ^Executor executor/*default* ^Runnable sub)
         (catch Throwable t
           (when (not @canceled)
             (atomic/set! canceled true)

@@ -33,12 +33,7 @@
            org.reactivestreams.Subscriber
            java.lang.AutoCloseable
            java.util.Set
-           java.util.concurrent.ForkJoinPool
-           java.util.concurrent.Executors
            java.util.concurrent.CountDownLatch))
-
-(def ^:dynamic *executor* (ForkJoinPool/commonPool))
-;; (def ^:dynamic *executor* (Executors/newSingleThreadExecutor))
 
 (definterface IPullStream
   (pull [] "Pull a value from the stream."))
