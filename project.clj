@@ -3,7 +3,7 @@
   :url "https://github.com/funcool/futura"
   :license {:name "BSD (2 Clause)"
             :url "http://opensource.org/licenses/BSD-2-Clause"}
-  :dependencies [[org.clojure/clojure "1.7.0-RC1" :scope "provided"]
+  :dependencies [[org.clojure/clojure "1.7.0-RC2" :scope "provided"]
                  [cats "0.4.0"]
                  [manifold "0.1.0"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
