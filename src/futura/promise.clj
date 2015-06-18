@@ -265,7 +265,7 @@
   [p]
   (pending* p))
 
-(defn future
+(defn promise->future
   "Converts a promise in a CompletableFuture instance."
   [^Promise p]
   (.-cf p))
@@ -286,7 +286,7 @@
   ([p] (deliver p nil))
   ([p v]
    {:pre [(promise? p)]}
-   (let [f (future p)]
+   (let [f (promise->future p)]
      (if (instance? Throwable v)
        (.completeExceptionally f v)
        (.complete f v)))))
@@ -297,7 +297,7 @@
   array are resolved."
   [promises]
   (let [promises (map promise promises)
-        futures (map future promises)
+        futures (map promise->future promises)
         promise' (->> (into-array CompletableFuture futures)
                       (CompletableFuture/allOf)
                       (Promise.))]
@@ -311,7 +311,7 @@
   [promises]
   (let [xform (comp
                (map promise)
-               (map future))]
+               (map promise->future))]
     (->> (sequence xform promises)
          (into-array CompletableFuture)
          (CompletableFuture/anyOf)
