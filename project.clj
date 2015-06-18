@@ -18,4 +18,5 @@
                              :language :clojure
                              :output-dir "doc/api"}
                    :plugins [[funcool/codeina "0.1.0-SNAPSHOT"
-                              :exclusions [org.clojure/clojure]]]}})
+                              :exclusions [org.clojure/clojure]]
+                             [lein-ancient "0.6.7" :exclusions [org.clojure/tools.reader]]]}})
