@@ -5,7 +5,8 @@
 Date: Unreleased
 
 - Split executors to a separated namespace.
-- Rename `future` function to `future->promise` for avoid confusions.
+- Rename `future` function to `promise->future` for avoid confusions.
+- Add new `IPromiseState` protocol as result of split `IPromise`.
 - Update Clojure to 1.7.0 RC2.
 
 ## Version 0.1.0-alpha2 ##
