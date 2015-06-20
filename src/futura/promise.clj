@@ -155,7 +155,6 @@
 
 (alter-meta! #'->Promise assoc :private true)
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public Api
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -166,12 +165,11 @@
 (defmulti ^:no-doc promise* class)
 
 (defmethod promise* clojure.lang.IFn
-  [func]
+  [factory]
   (let [futura (CompletableFuture.)
-        promise (Promise. futura)
-        callback #(deliver promise %)]
+        promise (Promise. futura)]
     (try
-      (func callback)
+      (factory #(deliver promise %))
       (catch Throwable e
         (.completeExceptionally futura e)))
     promise))
@@ -215,7 +213,7 @@
 
   - throwable
   - plain value
-  - function / callable
+  - factory function
 
   In case of the initial value is instance of `Throwable`, rejected
   promise will be retrned. In case of a plain value (not throwable),
@@ -223,16 +221,15 @@
   or any callable is provided, that function will be executed with
   one argument as callback for mark the promise resolved or rejected.
 
-      (promise (fn [complete]
+      (promise (fn [deliver]
                  (future
                    (Thread/sleep 200)
-                   (complete 1))))
+                   (deliver 1))))
 
   The body of that function can be asynchronous and the promise can
   be freely resolved in other thread."
   ([] (promise* nil))
   ([v] (promise* v)))
-
 
 (defn promise?
   "Returns true if `p` is a promise
