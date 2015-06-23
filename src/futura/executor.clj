@@ -23,10 +23,76 @@
 ;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 (ns futura.executor
-  (:import java.util.concurrent.ForkJoinPool))
+  "A basic abstraction for executor services."
+  (:require [futura.promise :as p])
+  (:import java.util.concurrent.ForkJoinPool
+           java.util.concurrent.Executor
+           java.util.concurrent.Executors
+           java.util.concurrent.ThreadFactory))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; The main abstraction definition.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defprotocol IExecutor
+  (^:private execute* [_ task] "Execute a task in a executor."))
+
+(defprotocol IExecutorService
+  (^:private submit* [_ task] "Submit a task and return a promise."))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Implementation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(extend-type Executor
+  IExecutor
+  (execute* [this task]
+    (.execute this ^Runnable task))
+
+  IExecutorService
+  (submit* [this task]
+    (p/promise
+     (fn [resolve]
+       (execute* this (fn []
+                        (try
+                          (resolve (task))
+                          (catch Throwable e
+                            (resolve e)))))))))
+
+(defn- thread-factory-adapter
+  "Adapt a simple clojure function into a
+  ThreadFactory instance."
+  [func]
+  (reify ThreadFactory
+    (^Thread newThread [_ ^Runnable runnable]
+      (func runnable))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Public Api
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def ^:dynamic *default* (ForkJoinPool/commonPool))
-;; (def ^:dynamic *default* (Executors/newSingleThreadExecutor))
+(def ^:dynamic *default-thread-factory* (Executors/defaultThreadFactory))
 
+(defn fixed
+  "A fixed thread pool constructor."
+  ([n]
+   (Executors/newFixedThreadPool n *default-thread-factory*))
+  ([n factory]
+   (Executors/newFixedThreadPool n (thread-factory-adapter factory))))
 
+(defn single-thread
+  "A single thread executor constructor."
+  ([]
+   (Executors/newSingleThreadExecutor *default-thread-factory*))
+  ([factory]
+   (Executors/newSingleThreadExecutor (thread-factory-adapter factory))))
+
+(defn cached
+  "A cached thread executor constructor."
+  ([]
+   (Executors/newCachedThreadPool *default-thread-factory*))
+  ([factory]
+   (Executors/newCachedThreadPool (thread-factory-adapter factory))))
 
