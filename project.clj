@@ -16,7 +16,7 @@
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
   :profiles {:dev {:codeina {:sources ["src"]
                              :language :clojure
-                             :output-dir "doc/api"}
+                             :output-dir "doc/dist/latest/api"}
                    :plugins [[funcool/codeina "0.1.0-SNAPSHOT"
                               :exclusions [org.clojure/clojure]]
                              [lein-ancient "0.6.7" :exclusions [org.clojure/tools.reader]]]}})

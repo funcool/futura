@@ -1,4 +1,4 @@
-= futura - The building blocks for asynchronous programming in Clojure.
+= futura - building blocks for asynchronous programming in Clojure
 Andrey Antukh, <niwi@niwi.be>
 :toc: left
 :toclevels: 2
@@ -42,6 +42,8 @@ The _futura_ library at this moment provides three different building blocks:
   Additionally to the mentioned abstractions, this library provides an lighweight clojure friendly
   syntax for working with JDK Atomic types and references that are often used as concurrency primitives
   in the streams implementation.
+* *Executors* +
+  A clojure friendly abstraction for the java/jvm executors.
 
 
 == Project Maturity
@@ -56,7 +58,7 @@ it as a dependency:
 
 [source, clojure]
 ----
-[funcool/futura "0.2.0"]
+[funcool/futura "0.3.0"]
 ----
 
 
@@ -173,6 +175,7 @@ previous examples we have seen `then` function, let see an other more complex ex
 
 ;; It will print 4.
 ----
+
 
 === Error handling
 
@@ -496,6 +499,54 @@ And optionally you can increment it with user specified delta:
 
 @mylong
 ;; => 10
+----
+
+
+== Executors
+
+This is a simple clojure friendly syntax and lightweight abstraction for the jvm executors.
+
+It there two kind of operations you can do with futura executor api:
+
+* Execute a function in an executor.
+* Execute a task in an executor and wait a result of that operation using promises.
+
+So, the first operation consists just execute a clojure function in other thread:
+
+[source, clojure]
+----
+(require '[futura.executor :as exec])
+
+(exec/execute (fn []
+                (println "hello world")))
+----
+
+
+And the second one, consists in execute some (maybe) blocking code in other thead
+and wait the result using the promise abstraction:
+
+[source, clojure]
+----
+(require '[futura.executor :as exec])
+(require '[futura.promise :as p])
+
+(def prom (exec/submit (fn []
+                         (Thread/sleep 2000)
+                         (+ 1 2))))
+
+(p/then prom (fn [result]
+               (println "Result:" result)))
+----
+
+The two explained functions are multiarity and both them accepts an additional argument
+for specify a user provided executor instane. So the first example is identical a this one:
+
+[source, clojure]
+----
+(require '[futura.executor :as exec])
+
+(exec/execute exec/*default* (fn []
+                               (println "hello world")))
 ----
 
 
