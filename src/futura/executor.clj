@@ -30,7 +30,6 @@
            java.util.concurrent.Executors
            java.util.concurrent.ThreadFactory))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; The main abstraction definition.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -95,4 +94,25 @@
    (Executors/newCachedThreadPool *default-thread-factory*))
   ([factory]
    (Executors/newCachedThreadPool (thread-factory-adapter factory))))
+
+(defn execute
+  "Execute a task in a provided executor.
+
+  A task is a plain clojure function or
+  jvm Runnable instance."
+  ([task]
+   (execute* *default* task))
+  ([executor task]
+   (execute* executor task)))
+
+(defn submit
+  "Submit a task to be executed in a provided executor
+  and return a promise that will be completed with
+  the return value of a task.
+
+  A task is a plain clojure function."
+  ([task]
+   (submit* *default* task))
+  ([executor task]
+   (submit* executor task)))
 
